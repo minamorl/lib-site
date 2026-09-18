@@ -5,8 +5,8 @@ sidebar:
   order: 1
 ---
 
-import { Code } from '@astrojs/starlight/components';
-import first from '../../../../examples/darkcore/handlers.ts?raw';
+import { Code } from "@astrojs/starlight/components";
+import first from "../../../../examples/darkcore/handlers.ts?raw";
 
 `@minamorl/darkcore` is a small effect interpreter for TypeScript. A program is a
 piece of tagged data; a handler map, passed explicitly at interpretation time,
@@ -18,16 +18,18 @@ typeclass catalog, no operator overloading, and no transformer layer.
 npm install @minamorl/darkcore
 ```
 
+Source: [minamorl/darkcore-ts](https://github.com/minamorl/darkcore-ts) · npm: [@minamorl/darkcore](https://www.npmjs.com/package/@minamorl/darkcore)
+
 ## The problem it addresses
 
 Code that performs effects (reads a file, calls a service, sends mail) is hard
-to test and hard to inspect, because the description of *what* should happen
+to test and hard to inspect, because the description of _what_ should happen
 and the act of doing it are the same lines of code.
 
 darkcore separates the two. A program describes its operations as data: each
 operation has a string `tag` and an `input`. Handlers do the work. The same
 program can therefore be run against production handlers, against recording
-fakes in a test, or against handlers that only write down what *would* happen.
+fakes in a test, or against handlers that only write down what _would_ happen.
 Choosing a handler map is choosing an interpretation.
 
 ## Core model
@@ -36,9 +38,9 @@ The whole data model is one union type:
 
 ```ts
 type Effect<A> =
-  | Readonly<{ _tag: 'Pure'; value: A }>
+  | Readonly<{ _tag: "Pure"; value: A }>
   | Readonly<{
-      _tag: 'Op';
+      _tag: "Op";
       tag: string;
       input: unknown;
       onReturn: (value: unknown) => Effect<A>;
@@ -50,7 +52,7 @@ type Effect<A> =
   handler receives, and `onReturn` is the continuation that receives the
   handler's result.
 
-The continuation only *constructs the next node*. Calling `onReturn` performs
+The continuation only _constructs the next node_. Calling `onReturn` performs
 no effect; it returns another `Effect<A>`, which is either `Pure` or the next
 `Op`. All effects happen inside handlers. This is why a program is inert until
 an interpreter is given a handler map.
@@ -73,8 +75,8 @@ There is no public `bind` or `flatMap`. Sequencing is written directly: the
 continuation of one `op` returns the next `op`.
 
 ```ts
-const program: Effect<number> = op('read', { key: 'answer' }, (value: number) =>
-  op('add', { left: value, right: 1 }, pure),
+const program: Effect<number> = op("read", { key: "answer" }, (value: number) =>
+  op("add", { left: value, right: 1 }, pure),
 );
 ```
 
@@ -99,7 +101,11 @@ Four functions interpret an effect. `fold` and `run` are synchronous;
 `foldAsync` and `runAsync` return promises.
 
 ```ts
-function fold<A, B>(effect: Effect<A>, handlers: HandlerMap, onReturn: (value: A) => B): B;
+function fold<A, B>(
+  effect: Effect<A>,
+  handlers: HandlerMap,
+  onReturn: (value: A) => B,
+): B;
 function run<A>(effect: Effect<A>, handlers: HandlerMap): A;
 function foldAsync<A, B>(
   effect: Effect<A>,
@@ -143,8 +149,8 @@ one lexical call.
 
 ```ts
 type ScopeExit<A> =
-  | Readonly<{ _tag: 'Success'; value: A }>
-  | Readonly<{ _tag: 'Error'; error: unknown }>;
+  | Readonly<{ _tag: "Success"; value: A }>
+  | Readonly<{ _tag: "Error"; error: unknown }>;
 
 function scoped<Resource, A>(
   acquire: () => Resource,
@@ -227,12 +233,19 @@ package's `index.d.ts`:
 
 ```ts
 export type Effect<A> =
-  | Readonly<{ _tag: 'Pure'; value: A }>
-  | Readonly<{ _tag: 'Op'; tag: string; input: unknown; onReturn: (value: unknown) => Effect<A> }>;
-export type HandlerMap = Readonly<Record<string, (input: never) => unknown | PromiseLike<unknown>>>;
+  | Readonly<{ _tag: "Pure"; value: A }>
+  | Readonly<{
+      _tag: "Op";
+      tag: string;
+      input: unknown;
+      onReturn: (value: unknown) => Effect<A>;
+    }>;
+export type HandlerMap = Readonly<
+  Record<string, (input: never) => unknown | PromiseLike<unknown>>
+>;
 export type ScopeExit<A> =
-  | Readonly<{ _tag: 'Success'; value: A }>
-  | Readonly<{ _tag: 'Error'; error: unknown }>;
+  | Readonly<{ _tag: "Success"; value: A }>
+  | Readonly<{ _tag: "Error"; error: unknown }>;
 
 export declare function pure<A>(value: A): Effect<A>;
 export declare function op<Input, Output, A>(
@@ -240,14 +253,21 @@ export declare function op<Input, Output, A>(
   input: Input,
   onReturn: (value: Output) => Effect<A>,
 ): Effect<A>;
-export declare function fold<A, B>(effect: Effect<A>, handlers: HandlerMap, onReturn: (value: A) => B): B;
+export declare function fold<A, B>(
+  effect: Effect<A>,
+  handlers: HandlerMap,
+  onReturn: (value: A) => B,
+): B;
 export declare function run<A>(effect: Effect<A>, handlers: HandlerMap): A;
 export declare function foldAsync<A, B>(
   effect: Effect<A>,
   handlers: HandlerMap,
   onReturn: (value: A) => B | PromiseLike<B>,
 ): Promise<B>;
-export declare function runAsync<A>(effect: Effect<A>, handlers: HandlerMap): Promise<A>;
+export declare function runAsync<A>(
+  effect: Effect<A>,
+  handlers: HandlerMap,
+): Promise<A>;
 export declare function scoped<Resource, A>(
   acquire: () => Resource,
   use: (resource: Resource) => A,

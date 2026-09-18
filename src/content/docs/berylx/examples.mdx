@@ -5,13 +5,13 @@ sidebar:
   order: 2
 ---
 
-import { Code } from '@astrojs/starlight/components';
-import orderRecovery from '../../../../examples/berylx/order-recovery.ts?raw';
-import parallelMerge from '../../../../examples/berylx/parallel-merge.ts?raw';
-import branching from '../../../../examples/berylx/branching.ts?raw';
-import asyncPipeline from '../../../../examples/berylx/async-pipeline.ts?raw';
-import inspect from '../../../../examples/berylx/inspect.ts?raw';
-import rootCommit from '../../../../examples/berylx/root-commit.ts?raw';
+import { Code } from "@astrojs/starlight/components";
+import orderRecovery from "../../../../examples/berylx/order-recovery.ts?raw";
+import parallelMerge from "../../../../examples/berylx/parallel-merge.ts?raw";
+import branching from "../../../../examples/berylx/branching.ts?raw";
+import asyncPipeline from "../../../../examples/berylx/async-pipeline.ts?raw";
+import inspect from "../../../../examples/berylx/inspect.ts?raw";
+import rootCommit from "../../../../examples/berylx/root-commit.ts?raw";
 
 Each example below is a real file under `examples/berylx/` in this site's
 repository. The files import the published `@minamorl/berylx` package, are
@@ -42,7 +42,11 @@ The file shows five things in turn:
    sequence.
 5. A failed `validate` short-circuits before `reserve` runs.
 
-<Code code={orderRecovery} lang="ts" title="examples/berylx/order-recovery.ts" />
+<Code
+  code={orderRecovery}
+  lang="ts"
+  title="examples/berylx/order-recovery.ts"
+/>
 
 The handler's first argument is the failure's `cause` when there is one (a
 thrown exception) and the `BerylxError` otherwise (a `reject`). Checking
@@ -65,7 +69,11 @@ joins the results against that base. The file asserts each rule of the join:
 - `short_circuit` returns the first failing branch, `accumulate` collects all
   of them under `parallel_failed`.
 
-<Code code={parallelMerge} lang="ts" title="examples/berylx/parallel-merge.ts" />
+<Code
+  code={parallelMerge}
+  lang="ts"
+  title="examples/berylx/parallel-merge.ts"
+/>
 
 Note the last section: `par()` is typed as `BerylxNode<S>`, so `.accumulate()`
 and `.reduce()` are reached by constructing `new Parallel([...])` directly.
@@ -91,7 +99,11 @@ explicitly with `root.commit(result)`, shows an async failure carrying partial
 state and `failedNode`, and confirms that the synchronous path throws when
 handed an `AsyncTask` instead of returning a wrong answer.
 
-<Code code={asyncPipeline} lang="ts" title="examples/berylx/async-pipeline.ts" />
+<Code
+  code={asyncPipeline}
+  lang="ts"
+  title="examples/berylx/async-pipeline.ts"
+/>
 
 ## Inspecting structure without running it
 

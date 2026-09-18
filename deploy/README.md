@@ -2,7 +2,7 @@
 
 lib.minamorl.com is a tenant of [kyanite](file:///home/minamorl/repos/kyanite)
 (self-hosted deployment platform, Rust CLI) on vultr. This directory holds
-everything about *delivery*, versioned with the site. The image itself
+everything about _delivery_, versioned with the site. The image itself
 (`Dockerfile`) and the tenant manifest (`kyanite.toml`) live at the repo root
 and are owned separately.
 
@@ -12,7 +12,7 @@ and are owned separately.
 browser
   │ https
   ▼
-Cloudflare (proxied A record lib → 64.176.43.103)
+Cloudflare (proxied A record lib → the origin host)
   │ https, 443 only reaches the origin
   ▼
 vultr nginx: front vhost  /etc/nginx/sites-enabled/lib.minamorl.com   (this repo: deploy/nginx/)
@@ -43,17 +43,17 @@ the moment the first `kyanite deploy` publishes the route.
 
 ## What is installed on vultr (by `deploy/vultr-bootstrap.sh`)
 
-| path on vultr | from | purpose |
-|---|---|---|
-| `/usr/local/bin/kyanite` | `~/repos/kyanite` built at HEAD | the CLI; built commit recorded in `/usr/local/share/kyanite/commit` |
-| `/usr/local/share/kyanite/commit` | generated | `295409a91ba590086dc4d72ae58e20af1b991a16` (branch `feat/kyanite-cli`) at bootstrap on 2026-09-18 |
-| `/var/lib/kyanite/` (+ `nginx/`) | generated, minamorl 0755 | ledger (`ledger.sqlite`), exported sources, route includes |
-| `/etc/nginx/conf.d/kyanite.conf` | generated | `include /var/lib/kyanite/nginx/*.conf;` |
-| `/etc/nginx/sites-available/lib.minamorl.com` (+ `sites-enabled` symlink) | `deploy/nginx/lib.minamorl.com.conf` | the 443 front vhost |
-| `/usr/local/bin/kyanite-nginx` | `deploy/kyanite-nginx` | `--nginx` shim: `sudo -n nginx -t` / `-s reload` only, else exit 64 |
-| `/usr/local/bin/lib-site-ci-deploy` | `deploy/lib-site-ci-deploy` | ssh forced command for the CI key |
-| `/home/minamorl/repos/lib-site` | `git clone git@github.com:minamorl/lib-site.git` | deploy-only checkout; `[source] repo` for the manifest. Never edit it |
-| `~/.ssh/authorized_keys` (last line) | op C below | `restrict,command="/usr/local/bin/lib-site-ci-deploy" ssh-ed25519 … lib-deploy-ci` |
+| path on vultr                                                             | from                                             | purpose                                                                                           |
+| ------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `/usr/local/bin/kyanite`                                                  | `~/repos/kyanite` built at HEAD                  | the CLI; built commit recorded in `/usr/local/share/kyanite/commit`                               |
+| `/usr/local/share/kyanite/commit`                                         | generated                                        | `295409a91ba590086dc4d72ae58e20af1b991a16` (branch `feat/kyanite-cli`) at bootstrap on 2026-09-18 |
+| `/var/lib/kyanite/` (+ `nginx/`)                                          | generated, minamorl 0755                         | ledger (`ledger.sqlite`), exported sources, route includes                                        |
+| `/etc/nginx/conf.d/kyanite.conf`                                          | generated                                        | `include /var/lib/kyanite/nginx/*.conf;`                                                          |
+| `/etc/nginx/sites-available/lib.minamorl.com` (+ `sites-enabled` symlink) | `deploy/nginx/lib.minamorl.com.conf`             | the 443 front vhost                                                                               |
+| `/usr/local/bin/kyanite-nginx`                                            | `deploy/kyanite-nginx`                           | `--nginx` shim: `sudo -n nginx -t` / `-s reload` only, else exit 64                               |
+| `/usr/local/bin/lib-site-ci-deploy`                                       | `deploy/lib-site-ci-deploy`                      | ssh forced command for the CI key                                                                 |
+| `/home/minamorl/repos/lib-site`                                           | `git clone git@github.com:minamorl/lib-site.git` | deploy-only checkout; `[source] repo` for the manifest. Never edit it                             |
+| `~/.ssh/authorized_keys` (last line)                                      | op C below                                       | `restrict,command="/usr/local/bin/lib-site-ci-deploy" ssh-ed25519 … lib-deploy-ci`                |
 
 Re-running the bootstrap is safe: identical files are skipped, a differing
 existing file stops it with exit 70 and the path, nothing is deleted. To roll
@@ -75,9 +75,9 @@ is a Claude Code launcher that shadows the C compiler.
 
 ## DNS (Cloudflare, zone `87218e5761297ce42cd0887b0b198945`)
 
-| record | id | value |
-|---|---|---|
-| `A lib.minamorl.com` | `3ec78acb0a692c44938a18db6468afd0` | `64.176.43.103`, proxied, auto TTL — created 2026-09-18 |
+| record               | id                                 | value                                                                                                                         |
+| -------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `A lib.minamorl.com` | `3ec78acb0a692c44938a18db6468afd0` | the origin host (repository secret `DEPLOY_HOST`; on the tailnet the host is `vultr`), proxied, auto TTL — created 2026-09-18 |
 
 Rollback of the DNS change:
 
@@ -101,12 +101,12 @@ Triggers: `push` to `main`, `workflow_dispatch`. One deploy at a time
 
 ### Secrets (set 2026-09-18, `gh secret set -R minamorl/lib-site`)
 
-| secret | value / how made |
-|---|---|
-| `DEPLOY_SSH_KEY` | private half of `ssh-keygen -t ed25519 -C lib-deploy-ci`; fingerprint `SHA256:Jhsl66XnEkdvcm2FV4S5vBVEGb72pc1lE77XISOtJ38`. The private key exists only in this secret |
-| `DEPLOY_HOST` | `64.176.43.103` |
-| `DEPLOY_USER` | `minamorl` |
-| `DEPLOY_KNOWN_HOSTS` | output of `ssh-keyscan -t ed25519 64.176.43.103` (pinned; the workflow uses `StrictHostKeyChecking=yes`) |
+| secret               | value / how made                                                                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEPLOY_SSH_KEY`     | private half of `ssh-keygen -t ed25519 -C lib-deploy-ci`; fingerprint `SHA256:Jhsl66XnEkdvcm2FV4S5vBVEGb72pc1lE77XISOtJ38`. The private key exists only in this secret |
+| `DEPLOY_HOST`        | the origin host's public IP (not written down here; on the tailnet the host is `vultr`)                                                                                |
+| `DEPLOY_USER`        | `minamorl`                                                                                                                                                             |
+| `DEPLOY_KNOWN_HOSTS` | output of `ssh-keyscan -t ed25519 "$DEPLOY_HOST"` against the origin host (pinned; the workflow uses `StrictHostKeyChecking=yes`)                                      |
 
 To rotate the key: generate a new pair, replace `DEPLOY_SSH_KEY`, replace the
 `lib-deploy-ci` line in vultr's `~/.ssh/authorized_keys` (keep the
@@ -117,13 +117,13 @@ To rotate the key: generate a new pair, replace `DEPLOY_SSH_KEY`, replace the
 The CI key cannot open a shell. `sshd` runs `/usr/local/bin/lib-site-ci-deploy`
 with the requested command in `SSH_ORIGINAL_COMMAND`:
 
-| command | effect | exit |
-|---|---|---|
-| `deploy <40-hex sha>` | `flock` → `git fetch origin` → require `sha` ∈ `origin/main` → `git reset --hard sha` → `kyanite deploy lib.minamorl.com <sha> --manifest …/kyanite.toml --nginx /usr/local/bin/kyanite-nginx --json` → `kyanite gc lib.minamorl.com --manifest … --json` | kyanite's |
-| `deploy <sha>` where the checkout at `sha` has no `kyanite.toml` | kyanite is not called; prints `{"skipped":"no kyanite.toml at <sha>"}` — CI writes "Deploy skipped: …" to the summary, skips the status/curl checks and ends green | 0 |
-| `status` | `{"app", "kyanite": <kyanite status --json>, "live": {commit, release_id, deployment_id} \| null}` — `live` is read from the ledger because kyanite's status JSON does not carry the source commit | kyanite's |
-| anything else | refused, nothing touched | 64 |
-| `deploy` of a sha not on `origin/main` | refused | 65 |
+| command                                                          | effect                                                                                                                                                                                                                                                                                                                        | exit      |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `deploy <40-hex sha>`                                            | `flock` → `git fetch origin` → require `sha` ∈ `origin/main` → `git reset --hard sha` → `kyanite deploy lib.minamorl.com <sha> --manifest …/kyanite.toml --state-dir /var/lib/kyanite --nginx /usr/local/bin/kyanite-nginx --json` → `kyanite gc lib.minamorl.com --manifest … --state-dir /var/lib/kyanite --nginx … --json` | kyanite's |
+| `deploy <sha>` where the checkout at `sha` has no `kyanite.toml` | kyanite is not called; prints `{"skipped":"no kyanite.toml at <sha>"}` — CI writes "Deploy skipped: …" to the summary, skips the status/curl checks and ends green                                                                                                                                                            | 0         |
+| `status`                                                         | `{"app", "kyanite": <kyanite status --json>, "live": {commit, release_id, deployment_id} \| null}` — `live` is read from the ledger because kyanite's status JSON does not carry the source commit                                                                                                                            | kyanite's |
+| anything else                                                    | refused, nothing touched                                                                                                                                                                                                                                                                                                      | 64        |
+| `deploy` of a sha not on `origin/main`                           | refused                                                                                                                                                                                                                                                                                                                       | 65        |
 
 `status` exits 1 with `app_not_registered` until the first deploy has happened.
 
@@ -175,12 +175,12 @@ shim. Per tenant, copy and rename:
 
 ## Tenant (the image and the manifest)
 
-| file | role |
-|---|---|
-| `Dockerfile` | two stages: `node:24-alpine` runs `npm ci` + `npm test` (check → examples → build), `nginxinc/nginx-unprivileged:stable-alpine` serves `dist/` on 8080 as uid 101. A failing example fails the build, so the deploy stops before anything is started |
+| file                          | role                                                                                                                                                                                                                                                                                        |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Dockerfile`                  | two stages: `node:24-alpine` runs `npm ci` + `npm test` (check → examples → build), `nginxinc/nginx-unprivileged:stable-alpine` serves `dist/` on 8080 as uid 101. A failing example fails the build, so the deploy stops before anything is started                                        |
 | `deploy/container/nginx.conf` | the server block inside the container (`/etc/nginx/conf.d/default.conf`): `/healthz` 200, `/_astro/` immutable for a year, pages `no-cache`, `try_files … =404` with Astro's `404.html`, relative redirects (`absolute_redirect off`) so `/darkcore` → `/darkcore/` survives the proxy hops |
-| `.dockerignore` | keeps `node_modules`, `dist`, `.git`, `.github`, `.evidence` and `deploy/` (except `deploy/container`) out of the build context |
-| `kyanite.toml` | the manifest; every key is commented in place. `[process] command` must stay equal to the Dockerfile `CMD`, `[health] port` to `[process] port` |
+| `.dockerignore`               | keeps `node_modules`, `dist`, `.git`, `.astro`, `.github`, `.evidence` and `deploy/` (except `deploy/container`) out of the build context                                                                                                                                                   |
+| `kyanite.toml`                | the manifest; every key is commented in place. `[process] command` must stay equal to the Dockerfile `CMD`, `[health] port` to `[process] port`                                                                                                                                             |
 
 Local check of the image, same probes as the first deploy used:
 
