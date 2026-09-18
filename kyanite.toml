@@ -1,0 +1,68 @@
+# lib.minamorl.com — kyanite tenant manifest. Deploy-time input only: every
+# value here is frozen into the release, so editing it changes the *next*
+# deploy, never a running one. Field names follow kyanite's
+# crates/kyanite-cli/src/manifest.rs (unknown keys are rejected).
+
+[app]
+# The app name is also the routed hostname (server_name of the block kyanite
+# writes into /var/lib/kyanite/nginx/), so it must be the public DNS name.
+name = "lib.minamorl.com"
+
+[source]
+# Deploy-only checkout on vultr that follows origin/main (deploy/README.md).
+# Used when `kyanite deploy` is given a git ref; a directory source ignores it.
+repo = "/home/minamorl/repos/lib-site"
+# What `kyanite deploy lib.minamorl.com` with no ref resolves to.
+default_ref = "origin/main"
+
+[build]
+# context is relative to the exported source tree; dockerfile is relative to
+# this manifest's directory. Both are the repo root here.
+context = "."
+dockerfile = "Dockerfile"
+
+[deploy]
+# production has no branch; blue-green starts the new container, health
+# checks it, then re-points the nginx block and stops the old one.
+environment = "production"
+strategy = "blue-green"
+
+[process]
+# Passed as the container argv by the runtime (overrides the image CMD), so
+# it must equal the Dockerfile CMD. nginx-unprivileged's entrypoint still
+# runs first.
+command = ["nginx", "-g", "daemon off;"]
+# The only port the runtime publishes (docker --publish 127.0.0.1::8080).
+port = 8080
+# nginx exits promptly on SIGTERM; 10 s is ample for in-flight responses.
+stop_grace_seconds = 10
+
+[resources]
+# Static files only: a quarter core and 128 MiB are generous for nginx.
+cpu_millis = 250
+memory_bytes = 134217728
+# 512 MiB. Ledger-only (not passed to docker run); documents the expectation.
+disk_bytes = 536870912
+
+[health]
+# Host-side HTTP probe against the published port; the container answers
+# /healthz with a constant 200 (deploy/container/nginx.conf).
+kind = "http"
+port = 8080
+path = "/healthz"
+expect_status = 200
+# 1 s × 30 probes, after a 2 s grace: nginx is up within a second, so the
+# budget is for docker/port-publication latency, not the app.
+interval_seconds = 1
+timeout_seconds = 2
+grace_period_seconds = 2
+failure_threshold = 30
+
+[env]
+# Nothing to configure: the site is fully static.
+
+[retention]
+# Keep the three most recent releases (and their images) for rollback, and
+# drop anything older than 30 days on `kyanite gc`.
+keep_recent = 3
+max_age_days = 30

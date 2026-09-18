@@ -172,3 +172,36 @@ shim. Per tenant, copy and rename:
 
 `vultr-bootstrap.sh` is lib-site specific in steps 4 and 6 only; steps 1–3 and
 5 are the shared part.
+
+## Tenant (the image and the manifest)
+
+| file | role |
+|---|---|
+| `Dockerfile` | two stages: `node:24-alpine` runs `npm ci` + `npm test` (check → examples → build), `nginxinc/nginx-unprivileged:stable-alpine` serves `dist/` on 8080 as uid 101. A failing example fails the build, so the deploy stops before anything is started |
+| `deploy/container/nginx.conf` | the server block inside the container (`/etc/nginx/conf.d/default.conf`): `/healthz` 200, `/_astro/` immutable for a year, pages `no-cache`, `try_files … =404` with Astro's `404.html`, relative redirects (`absolute_redirect off`) so `/darkcore` → `/darkcore/` survives the proxy hops |
+| `.dockerignore` | keeps `node_modules`, `dist`, `.git`, `.github`, `.evidence` and `deploy/` (except `deploy/container`) out of the build context |
+| `kyanite.toml` | the manifest; every key is commented in place. `[process] command` must stay equal to the Dockerfile `CMD`, `[health] port` to `[process] port` |
+
+Local check of the image, same probes as the first deploy used:
+
+```sh
+docker build -t lib-site:test .
+docker run --rm -d --name lib-site-test -p 127.0.0.1:8080:8080 lib-site:test
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/healthz    # 200
+curl -sI http://127.0.0.1:8080/darkcore | grep Location                    # Location: /darkcore/
+docker exec lib-site-test id                                                # uid=101(nginx)
+docker rm -f lib-site-test
+```
+
+Deploying a tree that is not on `origin/main` yet (first deploy of a branch):
+`kyanite deploy` accepts a directory source; without `.git` it needs
+`--commit`.
+
+```sh
+rsync -a --exclude node_modules --exclude dist --exclude .git --exclude .astro ./ vultr:/tmp/lib-site-src/
+ssh vultr "kyanite deploy lib.minamorl.com /tmp/lib-site-src --manifest /tmp/lib-site-src/kyanite.toml \
+  --commit $(git rev-parse HEAD) --nginx /usr/local/bin/kyanite-nginx --json; rm -rf /tmp/lib-site-src"
+```
+
+The build pulls two base images and materialises `node_modules` inside the
+build cache; budget a few GB free on vultr's `/` before the first deploy.
