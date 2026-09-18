@@ -1,0 +1,123 @@
+---
+title: Practical examples
+description: Six runnable programs that exercise dependency injection, asynchronous I/O, dry runs, owned resources, stack safety, and the error envelope in @minamorl/darkcore.
+sidebar:
+  order: 2
+---
+
+import { Code } from '@astrojs/starlight/components';
+import handlers from '../../../../examples/darkcore/handlers.ts?raw';
+import asyncIo from '../../../../examples/darkcore/async-io.ts?raw';
+import dryRun from '../../../../examples/darkcore/dry-run.ts?raw';
+import scoped from '../../../../examples/darkcore/scoped.ts?raw';
+import stackSafety from '../../../../examples/darkcore/stack-safety.ts?raw';
+import errors from '../../../../examples/darkcore/errors.ts?raw';
+
+Each example on this page is a real file under `examples/darkcore/` in the
+site repository. Every file checks its own claims with `node:assert/strict`,
+prints one line on success, and exits non-zero on failure. They are type-checked
+under `strict` and executed by the site's test suite, so the behaviour shown here
+is the behaviour of the published `@minamorl/darkcore@0.1.0`.
+
+To run one yourself:
+
+```sh
+npm install @minamorl/darkcore
+node examples/darkcore/handlers.ts   # Node 24 strips the types
+```
+
+The files use only erasable TypeScript syntax (no `enum`, `namespace`, or
+parameter properties) so that Node can run them without a build step.
+
+## Swapping handlers: production and test
+
+A program is data, so the same value can be interpreted twice with different
+handler maps. Here `welcome` loads a user and sends them mail. The
+`production` map is backed by an in-memory table and outbox; the `recording`
+map writes down every call and returns canned data. The test run leaves the
+production outbox untouched, and the recorded calls show exactly what the
+program asked for, including the input the second operation derived from the
+first one's result.
+
+<Code code={handlers} lang="ts" title="examples/darkcore/handlers.ts" />
+
+## Asynchronous handlers and real I/O
+
+`runAsync` awaits each handler result before building the next node. The
+handlers here do real work: `write` writes a temporary file, `sleep` waits on a
+timer from `node:timers/promises`, and `read` reads the file back. Plain values
+and promises can be mixed in one map.
+
+The last assertion shows the boundary between the interpreters: passing the
+same promise-returning map to synchronous `run` throws
+`ASYNC_HANDLER_IN_SYNC_RUN` at the first handler instead of leaking a promise
+into the continuation.
+
+<Code code={asyncIo} lang="ts" title="examples/darkcore/async-io.ts" />
+
+## Dry runs with `fold`
+
+Because effects live in handlers, a handler map that records and returns
+placeholders turns execution into description. The `describing` map here never
+uploads anything; it appends a sentence per step. `fold`'s third argument, the
+terminal algebra, then shapes the result: it receives the program's final
+value and returns whatever the caller wants, in this case the value together
+with the collected trace.
+
+One constraint is visible in the code: a continuation needs *some* value to
+build the next node, so a dry-run handler must return a stand-in of the right
+shape (`'<digest>'`, a placeholder `Config`). The continuation receives it
+unchanged; darkcore does not validate handler results.
+
+<Code code={dryRun} lang="ts" title="examples/darkcore/dry-run.ts" />
+
+## Owned resources with `scoped` and `scopedAsync`
+
+`scoped(acquire, use, release)` guarantees that once `acquire` succeeds,
+`release` runs and is told how `use` ended. The file walks through four exits:
+
+1. `use` returns: `release` sees `{ _tag: 'Success', value }` and the value is
+   returned.
+2. `use` throws: `release` sees `{ _tag: 'Error', error }`, then the caller gets
+   `SCOPE_USE_FAILED` whose `cause` is the original error and whose `details`
+   describe it by name and message only.
+3. `acquire` throws: `release` is not called; the caller gets
+   `SCOPE_ACQUIRE_FAILED`.
+4. `scopedAsync` with cooperative cancellation: `use` aborts via
+   `AbortSignal.throwIfAborted()`, which rejects with an `AbortError`. The
+   error release path runs as usual, and the caller sees `SCOPE_CANCELLED`
+   rather than `SCOPE_USE_FAILED`.
+
+The `log` array at the end confirms that every opened handle was closed, and
+with which exit.
+
+<Code code={scoped} lang="ts" title="examples/darkcore/scoped.ts" />
+
+## Stack safety over 100,000 operations
+
+The interpreter replaces its current node in a loop rather than recursing
+into each continuation. `countdown(100_000)` is a chain of one hundred thousand
+`tick` operations, each continuation building the next; `run` completes it and
+the handler is called exactly 100,000 times. For contrast, the file first
+shows that ordinary recursion of comparable depth throws `RangeError`. The
+async interpreter is iterative as well and is exercised with 10,000 awaited
+handler calls, matching the package's own test.
+
+<Code code={stackSafety} lang="ts" title="examples/darkcore/stack-safety.ts" />
+
+## The error envelope
+
+Every failure darkcore raises is an `Error` with `code`, `message`,
+`details`, and a ULID-shaped `trace_id`. The `envelope` helper in this file
+asserts that shape, including that `details` never carries a `stack`, and each
+case then checks its specific `code`:
+
+- a tag with no handler gives `MISSING_HANDLER` with `details: { tag }`;
+- a throwing handler gives `EFFECT_RUN_FAILED`, with the thrown error as
+  `cause` and `details.cause` holding only `{ name, message }`;
+- a promise-returning handler under `run` gives `ASYNC_HANDLER_IN_SYNC_RUN`;
+- the same failures under `runAsync` give `EFFECT_RUN_ASYNC_FAILED` and
+  `MISSING_HANDLER`;
+- three separate failures get three distinct `trace_id` values.
+
+<Code code={errors} lang="ts" title="examples/darkcore/errors.ts" />

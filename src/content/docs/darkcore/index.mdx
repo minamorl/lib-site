@@ -1,0 +1,325 @@
+---
+title: Introduction
+description: What @minamorl/darkcore is, the model behind it, its complete API surface, and how to run a first program.
+sidebar:
+  order: 1
+---
+
+import { Code } from '@astrojs/starlight/components';
+import first from '../../../../examples/darkcore/handlers.ts?raw';
+
+`@minamorl/darkcore` is a small effect interpreter for TypeScript. A program is a
+piece of tagged data; a handler map, passed explicitly at interpretation time,
+decides what each tag does. The package has no runtime dependencies and exports
+eight functions and three types. There is no higher-kinded type registration, no
+typeclass catalog, no operator overloading, and no transformer layer.
+
+```sh
+npm install @minamorl/darkcore
+```
+
+## The problem it addresses
+
+Code that performs effects (reads a file, calls a service, sends mail) is hard
+to test and hard to inspect, because the description of *what* should happen
+and the act of doing it are the same lines of code.
+
+darkcore separates the two. A program describes its operations as data: each
+operation has a string `tag` and an `input`. Handlers do the work. The same
+program can therefore be run against production handlers, against recording
+fakes in a test, or against handlers that only write down what *would* happen.
+Choosing a handler map is choosing an interpretation.
+
+## Core model
+
+The whole data model is one union type:
+
+```ts
+type Effect<A> =
+  | Readonly<{ _tag: 'Pure'; value: A }>
+  | Readonly<{
+      _tag: 'Op';
+      tag: string;
+      input: unknown;
+      onReturn: (value: unknown) => Effect<A>;
+    }>;
+```
+
+- `Pure` is a closed, terminal node holding the program's final value.
+- `Op` is one operation: its `tag` selects a handler, `input` is what the
+  handler receives, and `onReturn` is the continuation that receives the
+  handler's result.
+
+The continuation only *constructs the next node*. Calling `onReturn` performs
+no effect; it returns another `Effect<A>`, which is either `Pure` or the next
+`Op`. All effects happen inside handlers. This is why a program is inert until
+an interpreter is given a handler map.
+
+Two constructors build these nodes. `pure` freezes a `Pure` node. `op` freezes
+an `Op` node and owns the input/output types: `Input` is the type of the value
+you pass, `Output` is the type the handler is expected to return, and the
+callback you pass receives that `Output`.
+
+```ts
+function pure<A>(value: A): Effect<A>;
+function op<Input, Output, A>(
+  tag: string,
+  input: Input,
+  onReturn: (value: Output) => Effect<A>,
+): Effect<A>;
+```
+
+There is no public `bind` or `flatMap`. Sequencing is written directly: the
+continuation of one `op` returns the next `op`.
+
+```ts
+const program: Effect<number> = op('read', { key: 'answer' }, (value: number) =>
+  op('add', { left: value, right: 1 }, pure),
+);
+```
+
+### Handler maps
+
+```ts
+type HandlerMap = Readonly<
+  Record<string, (input: never) => unknown | PromiseLike<unknown>>
+>;
+```
+
+A handler map is a plain object indexed by tag. It is supplied to every
+interpreter call; there is no global registry. The parameter type `never`
+means any handler `(input: T) => R` is assignable, so ordinary functions with
+concrete parameter types work without casts. The map does not know the
+program's types; the `op` call site does. If a handler returns a value of the
+wrong shape, the continuation receives it as-is.
+
+## Interpretation
+
+Four functions interpret an effect. `fold` and `run` are synchronous;
+`foldAsync` and `runAsync` return promises.
+
+```ts
+function fold<A, B>(effect: Effect<A>, handlers: HandlerMap, onReturn: (value: A) => B): B;
+function run<A>(effect: Effect<A>, handlers: HandlerMap): A;
+function foldAsync<A, B>(
+  effect: Effect<A>,
+  handlers: HandlerMap,
+  onReturn: (value: A) => B | PromiseLike<B>,
+): Promise<B>;
+function runAsync<A>(effect: Effect<A>, handlers: HandlerMap): Promise<A>;
+```
+
+Every interpreter follows the same loop: look at the current node; if it is
+`Pure`, stop; otherwise find the handler for its tag, call it with the input,
+pass the result to `onReturn`, and make the returned node the current one.
+
+### The terminal algebra
+
+`fold` takes a third argument, `onReturn`, applied once to the value of the
+final `Pure` node. This is the terminal algebra: operation algebra lives in the
+handlers, terminal algebra lives here. `run` is `fold` with the identity
+function, so `run(e, h)` equals `fold(e, h, (v) => v)`. `foldAsync` accepts an
+`onReturn` that may itself return a promise.
+
+### Stack safety
+
+The interpreters do not recurse into continuations. They keep a single
+"current node" variable and replace it in a `for (;;)` loop. A chain of
+100,000 operations runs in constant stack space; the package's own tests execute
+100,000 synchronous and 10,000 asynchronous operations.
+
+### Synchronous runs reject promises
+
+`run` and `fold` check each handler result. If it is thenable, they throw an
+error with code `ASYNC_HANDLER_IN_SYNC_RUN` rather than silently passing a
+promise into the continuation. To use promise-returning handlers, call
+`runAsync` or `foldAsync`; those await every handler result, and accept plain
+values too, so one handler map can mix synchronous and asynchronous handlers.
+
+## Owned resources
+
+`scoped` and `scopedAsync` keep acquisition, use, and release of a resource in
+one lexical call.
+
+```ts
+type ScopeExit<A> =
+  | Readonly<{ _tag: 'Success'; value: A }>
+  | Readonly<{ _tag: 'Error'; error: unknown }>;
+
+function scoped<Resource, A>(
+  acquire: () => Resource,
+  use: (resource: Resource) => A,
+  release: (resource: Resource, exit: ScopeExit<A>) => void,
+): A;
+
+function scopedAsync<Resource, A>(
+  acquire: () => Resource | PromiseLike<Resource>,
+  use: (resource: Resource) => A | PromiseLike<A>,
+  release: (resource: Resource, exit: ScopeExit<A>) => void | PromiseLike<void>,
+): Promise<A>;
+```
+
+The rule for `release`:
+
+- If `acquire` throws, `release` is not called; the caller gets
+  `SCOPE_ACQUIRE_FAILED`.
+- Once `acquire` succeeds, `release` is always called exactly once.
+- If `use` returns, `release` receives `{ _tag: 'Success', value }` and the
+  value is returned to the caller. If `release` then throws, the caller gets
+  `SCOPE_RELEASE_FAILED`.
+- If `use` throws, `release` receives `{ _tag: 'Error', error }` with the
+  thrown value, and the caller gets `SCOPE_USE_FAILED` whose `cause` is the
+  original error. If `release` also throws, the caller gets
+  `SCOPE_USE_AND_RELEASE_FAILED` with both failures described in `details`.
+
+`scopedAsync` applies the same rule to promise-returning callbacks, with one
+addition. A JavaScript promise cannot be forcibly cancelled, so cancellation
+inside the language is cooperative: the `use` callback rejects. If the
+rejection is an `AbortError` (by `name`, or a `code` of `ABORT_ERR`), it takes
+the ordinary error release path and the caller receives `SCOPE_CANCELLED`
+instead of `SCOPE_USE_FAILED`. `release` still sees an `Error` exit carrying
+the abort error.
+
+`scoped` is independent of the interpreters. It does not take a handler map,
+and a `use` callback may call `run` or anything else.
+
+## Errors
+
+Every failure raised by darkcore is an `Error` instance with four stable
+fields:
+
+| Field      | Content                                                                   |
+| ---------- | ------------------------------------------------------------------------- |
+| `code`     | A stable string such as `MISSING_HANDLER`; see the list below.            |
+| `message`  | A fixed human-readable sentence for the code.                             |
+| `details`  | A frozen record of structured context, for example `{ tag }`.             |
+| `trace_id` | A 26-character ULID (Crockford base32, UTC millisecond timestamp prefix). |
+
+When darkcore wraps an error thrown by user code (a handler, `acquire`, `use`,
+or `release`), the original value is set as the standard `cause` property, and
+`details.cause` holds only `{ name, message }` describing it. Details never
+contain a raw stack. An error that is already a darkcore envelope is rethrown
+unchanged, so nesting interpreters does not re-wrap codes.
+
+The codes are:
+
+| Code                           | Raised by                                                 |
+| ------------------------------ | --------------------------------------------------------- |
+| `MISSING_HANDLER`              | any interpreter; `details` is `{ tag }`                   |
+| `ASYNC_HANDLER_IN_SYNC_RUN`    | `run` / `fold`; `details` is `{ tag }`                    |
+| `EFFECT_RUN_FAILED`            | `run` / `fold` wrapping a thrown handler error            |
+| `EFFECT_RUN_ASYNC_FAILED`      | `runAsync` / `foldAsync` wrapping a rejected handler      |
+| `SCOPE_ACQUIRE_FAILED`         | `scoped` / `scopedAsync`                                  |
+| `SCOPE_USE_FAILED`             | `scoped` / `scopedAsync`                                  |
+| `SCOPE_CANCELLED`              | `scopedAsync`, when `use` rejects with an `AbortError`    |
+| `SCOPE_RELEASE_FAILED`         | `scoped` / `scopedAsync`                                  |
+| `SCOPE_USE_AND_RELEASE_FAILED` | `scoped` / `scopedAsync`; `details` is `{ use, release }` |
+
+The library emits no logs, reads no environment variables or secrets, performs
+no writes of its own, and never retries.
+
+## Complete surface
+
+The runtime export set is closed and tested: `pure`, `op`, `fold`, `run`,
+`foldAsync`, `runAsync`, `scoped`, `scopedAsync`. The type exports are
+`Effect`, `HandlerMap`, and `ScopeExit`. The signatures, as published in the
+package's `index.d.ts`:
+
+```ts
+export type Effect<A> =
+  | Readonly<{ _tag: 'Pure'; value: A }>
+  | Readonly<{ _tag: 'Op'; tag: string; input: unknown; onReturn: (value: unknown) => Effect<A> }>;
+export type HandlerMap = Readonly<Record<string, (input: never) => unknown | PromiseLike<unknown>>>;
+export type ScopeExit<A> =
+  | Readonly<{ _tag: 'Success'; value: A }>
+  | Readonly<{ _tag: 'Error'; error: unknown }>;
+
+export declare function pure<A>(value: A): Effect<A>;
+export declare function op<Input, Output, A>(
+  tag: string,
+  input: Input,
+  onReturn: (value: Output) => Effect<A>,
+): Effect<A>;
+export declare function fold<A, B>(effect: Effect<A>, handlers: HandlerMap, onReturn: (value: A) => B): B;
+export declare function run<A>(effect: Effect<A>, handlers: HandlerMap): A;
+export declare function foldAsync<A, B>(
+  effect: Effect<A>,
+  handlers: HandlerMap,
+  onReturn: (value: A) => B | PromiseLike<B>,
+): Promise<B>;
+export declare function runAsync<A>(effect: Effect<A>, handlers: HandlerMap): Promise<A>;
+export declare function scoped<Resource, A>(
+  acquire: () => Resource,
+  use: (resource: Resource) => A,
+  release: (resource: Resource, exit: ScopeExit<A>) => void,
+): A;
+export declare function scopedAsync<Resource, A>(
+  acquire: () => Resource | PromiseLike<Resource>,
+  use: (resource: Resource) => A | PromiseLike<A>,
+  release: (resource: Resource, exit: ScopeExit<A>) => void | PromiseLike<void>,
+): Promise<A>;
+```
+
+The package is ESM only (`"type": "module"`, a single `.` export) and declares
+`node >= 20`.
+
+## Design decisions
+
+The repository records its design under two headings. The decisions that shape
+what you see as a user:
+
+- **Standalone rewrite.** darkcore is a rewrite with no dependency on any
+  functional-programming library. It deliberately has no HKT surface, no
+  datatype catalog, and no overloaded operators; the export set is a closed,
+  tested list.
+- **Capability boundary is the handler map.** A program has exactly the
+  capabilities its caller passes in. Nothing is looked up globally.
+- **Tagged data, single node.** An `Effect` is a discriminated union of one
+  `Pure` or one `Op`. Both are frozen with `Object.freeze`.
+- **Composition is structural only.** There is no public bind; `op.onReturn`
+  only builds the next node and does not implement any category's algebra.
+  Operation algebra belongs to handlers; terminal algebra belongs to `fold`'s
+  `onReturn`.
+- **Dispatch by tag.** The interpreter indexes the handler map by `Op.tag` and
+  nothing else.
+- **Same-scope resource ownership.** `scoped` owns acquire, use, and release
+  in one call, and every in-language exit (return, throw, cooperative
+  cancellation) is covered by tests.
+- **Error envelope.** Errors are a private `Error` subclass exposing
+  `code`, `message`, `details`, `trace_id`; details omit stacks; trace IDs are
+  UTC-epoch ULIDs.
+- **Free implementation choices**, recorded as such: a plain `tsc` ESM build,
+  TypeScript 5.9, the `node:test` runner, one public module at `src/index.ts`,
+  and a mutable current-node slot advanced by an iterative loop as the
+  continuation representation.
+
+## Relationship to berylx
+
+`@minamorl/berylx` uses the darkcore model as its execution engine, but it does
+not depend on this npm package. berylx ships its own TypeScript port under
+`src/darkcore/` (re-exported as the `Darkcore` namespace) with the same shape:
+a tagged `Effect` that is either pure or one tagged operation, a `HandlerMap`
+indexed by tag, and iterative `fold` / `foldAsync` loops with an `onReturn`
+terminal algebra. Its surface differs in detail: `Effect` is a class with
+`bind` and `seq`, `op` takes a response decoder, `fold` takes
+`(program, onReturn, handlers)`, and a missing handler throws a plain `Error`.
+berylx's `EffectTree` compiles `Task`, `AsyncTask`, `Sequence`, `Parallel`,
+`Branch`, `Rescue`, and `Catch` nodes into operations tagged `berylx_task`,
+`berylx_parallel`, `berylx_branch`, `berylx_rescue`, and `berylx_recover`, then
+interprets the resulting effect with `Darkcore.fold` and a handler map. Its
+`dryRun` is the handler-swap pattern from this page: the same effect tree is
+folded with handlers that record each task's name and return `Ok(focus)`
+without running the task body.
+
+## A first program
+
+The example below builds one program and runs it twice: once with handlers
+backed by an in-memory table and outbox, once with handlers that record every
+call and return canned data. It is the file `examples/darkcore/handlers.ts` in
+this site's repository, and it is executed by the site's test suite.
+
+<Code code={first} lang="ts" title="examples/darkcore/handlers.ts" />
+
+Run it with Node 24 (which strips types) as `node examples/darkcore/handlers.ts`.
+The [examples page](/darkcore/examples/) covers asynchronous I/O, dry runs,
+owned resources, stack safety, and the error envelope in the same style.
