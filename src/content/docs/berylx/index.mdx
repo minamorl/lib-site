@@ -15,7 +15,7 @@ graph before it is executed. A `Root` owns committed state and commits a
 workflow's result only when the whole workflow succeeds.
 
 ```ts
-import { berylx } from '@minamorl/berylx';
+import { berylx } from "@minamorl/berylx";
 
 interface Greeting {
   name: string;
@@ -24,14 +24,18 @@ interface Greeting {
 
 const b = berylx<Greeting>();
 
-const stripName = b.task('strip_name', (f) => f.at('name').update((name) => name.trim()));
-const greet = b.task('greet', (f) => f.at('greeting').set(`Hello, ${f.at('name').get()}!`));
+const stripName = b.task("strip_name", (f) =>
+  f.at("name").update((name) => name.trim()),
+);
+const greet = b.task("greet", (f) =>
+  f.at("greeting").set(`Hello, ${f.at("name").get()}!`),
+);
 
-const root = b.root({ name: '  Mina  ', greeting: '' });
+const root = b.root({ name: "  Mina  ", greeting: "" });
 const result = root.pipe(stripName.then(greet));
 
 result.focus.toObject(); // { name: 'Mina', greeting: 'Hello, Mina!' }
-root.state();            // the same object: the root committed the Ok
+root.state(); // the same object: the root committed the Ok
 ```
 
 This page documents version 0.3.0. It is a TypeScript port of the Ruby
@@ -65,6 +69,8 @@ already performed; compensation is recovery logic you write.
 npm install @minamorl/berylx
 ```
 
+Source: [minamorl/berylx-ts](https://github.com/minamorl/berylx-ts) · npm: [@minamorl/berylx](https://www.npmjs.com/package/@minamorl/berylx)
+
 The package is ESM only, ships TypeScript declarations, and requires Node.js 18
 or later. The examples on this site run unmodified on Node 24.
 
@@ -77,17 +83,20 @@ return a **new focus at the root** with the change applied. The original focus
 is unchanged.
 
 ```ts
-import { Focus } from '@minamorl/berylx';
+import { Focus } from "@minamorl/berylx";
 
-const original = Focus.of({ user: { name: '  Mina  ', age: 21 } });
-const updated = original.at('user').at('name').update((name) => name.trim());
+const original = Focus.of({ user: { name: "  Mina  ", age: 21 } });
+const updated = original
+  .at("user")
+  .at("name")
+  .update((name) => name.trim());
 
-original.at('user').at('name').get(); // '  Mina  '
-updated.at('user').at('name').get();  // 'Mina'
-updated.path;                         // [] — set/update return to the root
+original.at("user").at("name").get(); // '  Mina  '
+updated.at("user").at("name").get(); // 'Mina'
+updated.path; // [] — set/update return to the root
 
 // @ts-expect-error 'nmae' is not a key of user
-original.at('user').at('nmae');
+original.at("user").at("nmae");
 ```
 
 The path is part of the type. `at` only accepts keys that exist at the current
@@ -131,9 +140,9 @@ there is one, otherwise the `BerylxError` itself. Check with `isOk()` /
 ```ts
 const result = b.flow(state).call(workflow);
 if (result instanceof Err) {
-  result.code;                 // 'payment_failed'
-  result.failedNode;           // 'charge'
-  result.focus.toObject();     // state as it was when 'charge' failed
+  result.code; // 'payment_failed'
+  result.failedNode; // 'charge'
+  result.focus.toObject(); // state as it was when 'charge' failed
 }
 ```
 
@@ -234,7 +243,8 @@ each branch failure.
 ### Branch: When and Else
 
 ```ts
-const route = b.when('is_pro', (f) => f.at('plan').get() === 'pro')
+const route = b
+  .when("is_pro", (f) => f.at("plan").get() === "pro")
   .then(allocateSeats)
   .or(Else.then(singleSeat));
 ```
@@ -298,15 +308,15 @@ Because execution is a handler map, tasks can perform **custom effects** and
 the caller decides what those effects do:
 
 ```ts
-const lookup = b.task('lookup', (f, perform) =>
-  f.at('price').set(perform.perform('price_of', f.at('sku').get()) as number),
+const lookup = b.task("lookup", (f, perform) =>
+  f.at("price").set(perform.perform("price_of", f.at("sku").get()) as number),
 );
 
 const handlers = EffectTree.realHandlers({
   price_of: (sku) => catalogue.get(sku as string) ?? 0,
 });
 
-b.flow({ sku: 'A', price: 0 }).call(lookup, handlers);
+b.flow({ sku: "A", price: 0 }).call(lookup, handlers);
 ```
 
 A callback becomes effectful by **declaring a second parameter** (a third for
@@ -437,12 +447,17 @@ class Root<S = any> {
   pipe(other: BerylxNode<S>): Result<S>;
   call(node: BerylxNode<S>, handlers?: HandlerMap): Result<S>;
   commit(value: unknown): this;
-  state(): S; toObject(): S; toLay(): Focus<S, []>; toState(): State<S>;
+  state(): S;
+  toObject(): S;
+  toLay(): Focus<S, []>;
+  toState(): State<S>;
   at<K extends KeysAt<S, []>>(key: K): Focus<S, [K]>;
   subscribe(block: (event: RootEvent) => void): () => void;
   readonly history: RootEvent[];
 }
-type RootEvent = { type: 'snapshot'; value: unknown } | { type: 'commit'; value: unknown };
+type RootEvent =
+  | { type: "snapshot"; value: unknown }
+  | { type: "commit"; value: unknown };
 
 class Flow<S = any> {
   static of<T>(focus: Focus<T, any> | T): Flow<T>;
@@ -464,9 +479,17 @@ interface Berylx<S> {
   task(name: string, block: TaskBlock<S>): Task<S>;
   asyncTask(name: string, block: AsyncTaskBlock<S>): AsyncTask<S>;
   when(name: string, block: (focus: Focus<S, []>) => unknown): When<S>;
-  catch(name?: string, handler?: RescueHandler<S> | null, options?: CatchOptions, block?: RescueHandlerBlock<S>): Catch<S>;
-  focus(value: S): Focus<S, []>;  lay(value: S): Focus<S, []>;
-  flow(value: S | Focus<S, []>): Flow<S>;  root(value: S): Root<S>;  state(value: S): State<S>;
+  catch(
+    name?: string,
+    handler?: RescueHandler<S> | null,
+    options?: CatchOptions,
+    block?: RescueHandlerBlock<S>,
+  ): Catch<S>;
+  focus(value: S): Focus<S, []>;
+  lay(value: S): Focus<S, []>;
+  flow(value: S | Focus<S, []>): Flow<S>;
+  root(value: S): Root<S>;
+  state(value: S): State<S>;
 }
 ```
 
@@ -520,6 +543,7 @@ class Workflow implements BerylxNode { static of(name: string, build: () => Bery
 
 ### Execution, inspection, and compatibility
 
+{/* prettier-ignore */}
 ```ts
 class Perform { constructor(handlers: HandlerMap); perform(tag: string, payload?: unknown): unknown; }
 class ControlSignal extends Error { constructor(message?: string); }
@@ -570,7 +594,7 @@ incompatible updates to the same path return an `Err` with code
 select it explicitly:
 
 ```ts
-new Parallel([left, right]).reduce(Merge.deep())
+new Parallel([left, right]).reduce(Merge.deep());
 ```
 
 0.3 also introduced `Focus<S, P>` typed by state and path and the `berylx<S>()`
@@ -581,17 +605,17 @@ scoped factories; both are additive. Untyped `Task.of(...)` continues to work.
 The package includes a `MIGRATION.md` for consumers of the `root-paradigm`
 packages. The mapping in brief:
 
-| cray / lay                       | berylx                                   |
-| -------------------------------- | ---------------------------------------- |
-| lay `Focus<S>` with mutating set | `Focus` (immutable) + `Root.subscribe()` |
-| `cray()`                         | `Task` / `task()`                        |
-| sequence                         | `Sequence` / `node.then()`               |
-| `parallel()` + `Reducer`         | `Parallel`, `node.par()`, `Merge`        |
-| `branch()`, `else_`, `elseCray`  | `When`, `Else`, `Branch`, `Catch`        |
-| `Success` / `Failure`            | `Ok` / `Err` with `BerylxError`          |
-| `compile()`, `execute()`, `Graph`| `Graph.from(node)`                       |
-| `toMermaid()`                    | `Graph.toMermaid()` / `Graph.toDot()`    |
-| `attachCray()`                   | `attachRoot()`                           |
+| cray / lay                        | berylx                                   |
+| --------------------------------- | ---------------------------------------- |
+| lay `Focus<S>` with mutating set  | `Focus` (immutable) + `Root.subscribe()` |
+| `cray()`                          | `Task` / `task()`                        |
+| sequence                          | `Sequence` / `node.then()`               |
+| `parallel()` + `Reducer`          | `Parallel`, `node.par()`, `Merge`        |
+| `branch()`, `else_`, `elseCray`   | `When`, `Else`, `Branch`, `Catch`        |
+| `Success` / `Failure`             | `Ok` / `Err` with `BerylxError`          |
+| `compile()`, `execute()`, `Graph` | `Graph.from(node)`                       |
+| `toMermaid()`                     | `Graph.toMermaid()` / `Graph.toDot()`    |
+| `attachCray()`                    | `attachRoot()`                           |
 
 Behavioural differences to account for: updates return a new `Focus` instead
 of mutating a store; subscriptions live on `Root`; cray's `Promise<Result>`

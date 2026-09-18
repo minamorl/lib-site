@@ -24,7 +24,9 @@ export default defineConfig({
       editLink: {
         baseUrl: 'https://github.com/minamorl/lib-site/edit/main/',
       },
-      lastUpdated: true,
+      // Off: production builds a tree exported with `git archive` (no .git), so
+      // the "Last updated" line would exist locally and be missing in production.
+      lastUpdated: false,
       customCss: ['./src/styles/theme.css'],
       defaultLocale: 'root',
       locales: {

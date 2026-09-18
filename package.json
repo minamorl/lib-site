@@ -13,6 +13,8 @@
     "preview": "astro preview",
     "check": "astro check",
     "check:examples": "node scripts/check-examples.mjs",
+    "format": "prettier --write \"**/*.{md,mdx,yml,yaml,json}\"",
+    "format:check": "prettier --check \"**/*.{md,mdx,yml,yaml,json}\"",
     "test": "npm run check && npm run check:examples && npm run build"
   },
   "dependencies": {
@@ -27,6 +29,7 @@
   "devDependencies": {
     "@minamorl/berylx": "0.3.0",
     "@minamorl/darkcore": "0.1.0",
-    "@types/node": "^24.13.5"
+    "@types/node": "^24.13.5",
+    "prettier": "3.6.2"
   }
 }

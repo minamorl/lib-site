@@ -5,13 +5,13 @@ sidebar:
   order: 2
 ---
 
-import { Code } from '@astrojs/starlight/components';
-import handlers from '../../../../examples/darkcore/handlers.ts?raw';
-import asyncIo from '../../../../examples/darkcore/async-io.ts?raw';
-import dryRun from '../../../../examples/darkcore/dry-run.ts?raw';
-import scoped from '../../../../examples/darkcore/scoped.ts?raw';
-import stackSafety from '../../../../examples/darkcore/stack-safety.ts?raw';
-import errors from '../../../../examples/darkcore/errors.ts?raw';
+import { Code } from "@astrojs/starlight/components";
+import handlers from "../../../../examples/darkcore/handlers.ts?raw";
+import asyncIo from "../../../../examples/darkcore/async-io.ts?raw";
+import dryRun from "../../../../examples/darkcore/dry-run.ts?raw";
+import scoped from "../../../../examples/darkcore/scoped.ts?raw";
+import stackSafety from "../../../../examples/darkcore/stack-safety.ts?raw";
+import errors from "../../../../examples/darkcore/errors.ts?raw";
 
 Each example on this page is a real file under `examples/darkcore/` in the
 site repository. Every file checks its own claims with `node:assert/strict`,
@@ -64,7 +64,7 @@ terminal algebra, then shapes the result: it receives the program's final
 value and returns whatever the caller wants, in this case the value together
 with the collected trace.
 
-One constraint is visible in the code: a continuation needs *some* value to
+One constraint is visible in the code: a continuation needs _some_ value to
 build the next node, so a dry-run handler must return a stand-in of the right
 shape (`'<digest>'`, a placeholder `Config`). The continuation receives it
 unchanged; darkcore does not validate handler results.

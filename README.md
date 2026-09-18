@@ -39,7 +39,7 @@ deploy/                   hosting and deployment (see deploy/README.md)
 
 ## Adding a library
 
-1. Create `src/content/docs/<lib>/index.md` (plus any further pages) for its docs.
+1. Create `src/content/docs/<lib>/index.mdx` and `examples.mdx` (plus any further pages) for its docs.
 2. Create `examples/<lib>/` with `.ts` files that import the published package
    (add it to `devDependencies` with an exact version). Every file is compiled and
    executed by `npm run check:examples`; prefix shared helpers with `_` to skip execution.
