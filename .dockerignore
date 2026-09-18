@@ -1,0 +1,13 @@
+# Build context sent to `docker build` by kyanite (the whole source tree).
+# Keep it to what `npm test` (check, examples, build) and the runtime
+# stage need.
+node_modules
+dist
+.git
+.astro
+.github
+.evidence
+# deploy/ is host-side (vultr) material, except the container's nginx
+# config which the runtime stage COPYs in.
+deploy/*
+!deploy/container
