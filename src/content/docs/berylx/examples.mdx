@@ -1,0 +1,117 @@
+---
+title: Practical examples
+description: Six executable berylx scenarios — order recovery, parallel merges, branching, async pipelines, inspection, and root commit semantics — each verified by the site's test suite.
+sidebar:
+  order: 2
+---
+
+import { Code } from '@astrojs/starlight/components';
+import orderRecovery from '../../../../examples/berylx/order-recovery.ts?raw';
+import parallelMerge from '../../../../examples/berylx/parallel-merge.ts?raw';
+import branching from '../../../../examples/berylx/branching.ts?raw';
+import asyncPipeline from '../../../../examples/berylx/async-pipeline.ts?raw';
+import inspect from '../../../../examples/berylx/inspect.ts?raw';
+import rootCommit from '../../../../examples/berylx/root-commit.ts?raw';
+
+Each example below is a real file under `examples/berylx/` in this site's
+repository. The files import the published `@minamorl/berylx` package, are
+type-checked under a strict NodeNext configuration, and are executed with
+Node 24's built-in type stripping as part of `npm test`. Every claim in the
+prose is an `assert` in the file; a wrong claim fails the build.
+
+Run one yourself after `npm ci`:
+
+```sh
+node examples/berylx/order-recovery.ts
+```
+
+## Order processing with recovery
+
+A `validate → reserve → charge → notify` sequence, where `charge` can fail.
+The file shows five things in turn:
+
+1. Without a recovery boundary the result is an `Err` whose `focus` is the
+   state as it stood after `reserve` — `reserved: true` survives — with
+   `code`, `failedNode`, and `trace` identifying the failure.
+2. With a `Catch` boundary after `charge`, the handler receives the
+   `BerylxError` and the partial focus, records what it learned
+   (`reserved=true`), and the sequence continues to `notify`. Because the
+   result is `Ok`, the root commits it.
+3. A `Catch` boundary on the happy path passes the `Ok` through untouched.
+4. `rescueWith` wraps a whole sub-workflow instead of sitting inside a
+   sequence.
+5. A failed `validate` short-circuits before `reserve` runs.
+
+<Code code={orderRecovery} lang="ts" title="examples/berylx/order-recovery.ts" />
+
+The handler's first argument is the failure's `cause` when there is one (a
+thrown exception) and the `BerylxError` otherwise (a `reject`). Checking
+`instanceof BerylxError` distinguishes the two.
+
+## Parallel branches and the three-way merge
+
+Every `par` branch starts from the same base snapshot, and `Merge.strict`
+joins the results against that base. The file asserts each rule of the join:
+
+- disjoint updates — including two branches writing different keys of the
+  same nested object — are both preserved;
+- a branch that changes nothing does not erase the other branch's work;
+- two branches writing different values to the same path produce an `Err`
+  with code `merge_conflict`, `failedNode: 'parallel'`, the path in
+  `metadata`, and the **base** snapshot as the result focus;
+- two branches writing the same value to the same path are accepted;
+- `Merge.deep()` must be opted into, and it drops the left branch's update
+  when the right branch's snapshot lacks that change;
+- `short_circuit` returns the first failing branch, `accumulate` collects all
+  of them under `parallel_failed`.
+
+<Code code={parallelMerge} lang="ts" title="examples/berylx/parallel-merge.ts" />
+
+Note the last section: `par()` is typed as `BerylxNode<S>`, so `.accumulate()`
+and `.reduce()` are reached by constructing `new Parallel([...])` directly.
+
+## Branching with When and Else
+
+A shipping router with two conditional arms and an `Else` fallback. Arms are
+tried in declaration order, so the more specific `domestic_light` predicate
+comes first. The file also shows the `no_branch_matched` error when there is
+no `Else`, and that a `Branch` composes with `then` like any other node.
+
+<Code code={branching} lang="ts" title="examples/berylx/branching.ts" />
+
+## An asynchronous pipeline
+
+Two `AsyncTask`s load data concurrently with `par`, then a synchronous `Task`
+summarises the result. The workflow runs through `EffectTree.runAsync`, which
+starts both branches together, awaits them with `Promise.allSettled`, and
+applies the same three-way merge as the synchronous interpreter.
+
+`runAsync` returns a result and does not commit. The file commits the `Ok`
+explicitly with `root.commit(result)`, shows an async failure carrying partial
+state and `failedNode`, and confirms that the synchronous path throws when
+handed an `AsyncTask` instead of returning a wrong answer.
+
+<Code code={asyncPipeline} lang="ts" title="examples/berylx/async-pipeline.ts" />
+
+## Inspecting structure without running it
+
+A signup workflow with a branch and a parallel group is examined two ways.
+`Graph.from(node, name)` gives the static shape: every leaf name, the
+parallel groups, and DOT / Mermaid renderings with `split`/`join` nodes and
+edges labelled by predicate name. `EffectTree.dryRun(node, state)` gives the
+plan for a particular state: predicates are evaluated (so the `pro` and `free`
+plans differ), task bodies are not, and the returned focus equals the input.
+The real run then follows the same plan and changes the state.
+
+<Code code={inspect} lang="ts" title="examples/berylx/inspect.ts" />
+
+## Root commit semantics and subscriptions
+
+A counter root with a subscriber. A successful `pipe` of a two-step sequence
+produces exactly one `commit` event. A failing `pipe` whose earlier steps ran
+(`count` reached 2 in the partial state) leaves the committed state at 1 and
+emits no event at all. The committed state is deeply frozen. Finally,
+`attachRoot` projects the state through `select`, delivers the initial
+snapshot and one commit, and stops after the returned function is called.
+
+<Code code={rootCommit} lang="ts" title="examples/berylx/root-commit.ts" />
