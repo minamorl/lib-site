@@ -1,0 +1,140 @@
+/*
+ * lib.minamorl.com theme.
+ *
+ * Every colour, size, and font used by the site is declared here as a
+ * Starlight custom property (see Starlight's props.css for the full list).
+ * Pages never carry raw values; they inherit these.
+ */
+
+/* Self-hosted fonts (no external requests). Variable weight axis only. */
+@import '@fontsource-variable/inter/wght.css';
+@import '@fontsource-variable/jetbrains-mono/wght.css';
+
+:root {
+  /* Typography */
+  --sl-font: 'Inter Variable';
+  --sl-font-mono: 'JetBrains Mono Variable';
+  --sl-line-height: 1.7;
+  --sl-line-height-headings: 1.15;
+  --sl-text-code: 0.875rem;
+  --sl-text-code-sm: 0.8125rem;
+
+  /* Layout */
+  --sl-content-width: 46rem;
+  --sl-sidebar-width: 17.5rem;
+
+  /* Single accent hue; grays share one cool hue so nothing competes with it. */
+  --lib-hue-accent: 200;
+  --lib-hue-gray: 220;
+
+  /* Colours (dark mode) */
+  --sl-color-white: hsl(var(--lib-hue-gray), 15%, 96%);
+  --sl-color-gray-1: hsl(var(--lib-hue-gray), 12%, 90%);
+  --sl-color-gray-2: hsl(var(--lib-hue-gray), 8%, 76%);
+  --sl-color-gray-3: hsl(var(--lib-hue-gray), 6%, 60%);
+  --sl-color-gray-4: hsl(var(--lib-hue-gray), 6%, 38%);
+  --sl-color-gray-5: hsl(var(--lib-hue-gray), 8%, 22%);
+  --sl-color-gray-6: hsl(var(--lib-hue-gray), 10%, 13%);
+  --sl-color-black: hsl(var(--lib-hue-gray), 12%, 8%);
+
+  --sl-color-accent-low: hsl(var(--lib-hue-accent), 45%, 18%);
+  --sl-color-accent: hsl(var(--lib-hue-accent), 80%, 52%);
+  --sl-color-accent-high: hsl(var(--lib-hue-accent), 85%, 78%);
+
+  /* Surfaces: keep the sidebar and nav on the page background, separated by hairlines only. */
+  --sl-color-bg-nav: var(--sl-color-black);
+  --sl-color-bg-sidebar: var(--sl-color-black);
+  --sl-color-bg-inline-code: var(--sl-color-gray-6);
+  --sl-color-hairline-light: var(--sl-color-gray-5);
+  --sl-color-hairline: var(--sl-color-gray-5);
+  --sl-color-hairline-shade: var(--sl-color-gray-6);
+
+  /* Shadows: soft, not bubbly. */
+  --sl-shadow-sm: 0 1px 2px hsla(var(--lib-hue-gray), 20%, 4%, 0.4);
+  --sl-shadow-md: 0 2px 6px hsla(var(--lib-hue-gray), 20%, 4%, 0.45);
+  --sl-shadow-lg: 0 8px 24px hsla(var(--lib-hue-gray), 20%, 4%, 0.5);
+}
+
+:root[data-theme='light'] {
+  /* Colours (light mode) */
+  --sl-color-white: hsl(var(--lib-hue-gray), 14%, 10%);
+  --sl-color-gray-1: hsl(var(--lib-hue-gray), 12%, 16%);
+  --sl-color-gray-2: hsl(var(--lib-hue-gray), 10%, 27%);
+  --sl-color-gray-3: hsl(var(--lib-hue-gray), 7%, 42%);
+  --sl-color-gray-4: hsl(var(--lib-hue-gray), 6%, 62%);
+  --sl-color-gray-5: hsl(var(--lib-hue-gray), 8%, 82%);
+  --sl-color-gray-6: hsl(var(--lib-hue-gray), 14%, 94%);
+  --sl-color-gray-7: hsl(var(--lib-hue-gray), 16%, 97.5%);
+  --sl-color-black: hsl(0, 0%, 100%);
+
+  --sl-color-accent-high: hsl(var(--lib-hue-accent), 80%, 24%);
+  --sl-color-accent: hsl(var(--lib-hue-accent), 85%, 31%);
+  --sl-color-accent-low: hsl(var(--lib-hue-accent), 70%, 92%);
+
+  --sl-color-bg-nav: var(--sl-color-black);
+  --sl-color-bg-sidebar: var(--sl-color-black);
+  --sl-color-bg-inline-code: var(--sl-color-gray-6);
+  --sl-color-hairline-light: var(--sl-color-gray-5);
+  --sl-color-hairline: var(--sl-color-gray-5);
+  --sl-color-hairline-shade: var(--sl-color-gray-6);
+
+  --sl-shadow-sm: 0 1px 2px hsla(var(--lib-hue-gray), 20%, 10%, 0.08);
+  --sl-shadow-md: 0 2px 6px hsla(var(--lib-hue-gray), 20%, 10%, 0.1);
+  --sl-shadow-lg: 0 8px 24px hsla(var(--lib-hue-gray), 20%, 10%, 0.12);
+}
+
+/*
+ * Code blocks (Expressive Code). EC sets these on the .expressive-code element
+ * itself, so declaring them only on :root would be overridden in light mode;
+ * declare on both so the unlayered values win at the element.
+ */
+:root,
+.expressive-code {
+  --ec-brdRad: 0.5rem;
+  --ec-brdWd: 1px;
+  --ec-brdCol: var(--sl-color-gray-5);
+  --ec-codeBg: var(--sl-color-gray-6);
+  --ec-codeFontFml: var(--__sl-font-mono);
+  --ec-codeFontSize: var(--sl-text-code);
+  --ec-codeLineHt: 1.65;
+  --ec-codePadInl: 1.25rem;
+  --ec-codePadBlk: 1rem;
+  --ec-uiFontFml: var(--__sl-font);
+  --ec-frm-shdCol: transparent;
+  --ec-frm-edBg: var(--sl-color-gray-6);
+  --ec-frm-edTabBrdCol: var(--sl-color-gray-5);
+  --ec-frm-edActTabBg: var(--sl-color-gray-6);
+  --ec-frm-edActTabFg: var(--sl-color-white);
+  --ec-frm-edActTabIndBg: var(--sl-color-accent);
+  --ec-frm-edActTabIndHt: 2px;
+  --ec-frm-edTabBarBg: var(--sl-color-black);
+  --ec-frm-edTabBarBrdBtmCol: var(--sl-color-gray-5);
+  --ec-frm-trmBg: var(--sl-color-gray-6);
+  --ec-frm-trmTtbBg: var(--sl-color-black);
+  --ec-frm-trmTtbBrdBtmCol: var(--sl-color-gray-5);
+  --ec-frm-trmTtbDotsFg: var(--sl-color-gray-4);
+  --ec-frm-trmTtbDotsOpa: 1;
+}
+
+:root[data-theme='light'],
+:root[data-theme='light'] .expressive-code {
+  --ec-codeBg: var(--sl-color-gray-7);
+  --ec-frm-edBg: var(--sl-color-gray-7);
+  --ec-frm-edActTabBg: var(--sl-color-gray-7);
+  --ec-frm-edTabBarBg: var(--sl-color-gray-6);
+  --ec-frm-trmBg: var(--sl-color-gray-7);
+  --ec-frm-trmTtbBg: var(--sl-color-gray-6);
+}
+
+/* Slightly tighter tracking on large headings; body text stays default. */
+.sl-markdown-content :is(h1, h2, h3),
+.hero h1 {
+  letter-spacing: -0.015em;
+}
+
+/* Inline code: a quiet chip rather than a highlight. */
+.sl-markdown-content code:not(:where(.expressive-code *)) {
+  border: 1px solid var(--sl-color-hairline-light);
+  border-radius: 0.3rem;
+  padding: 0.1em 0.35em;
+}

@@ -1,0 +1,33 @@
+---
+title: lib.minamorl.com
+description: Introductions, guides, and worked examples for libraries by minamorl.
+template: splash
+hero:
+  title: Libraries by minamorl
+  tagline: Detailed introductions and practical, type-checked examples for each library, one subdirectory at a time.
+  actions:
+    - text: darkcore
+      link: /darkcore/
+      icon: right-arrow
+    - text: berylx
+      link: /berylx/
+      icon: right-arrow
+      variant: minimal
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+This site collects the documentation for libraries published under the `@minamorl` npm scope. Each library gets its own section with an introduction, a guide to the core design, and examples that are compiled and executed as part of the site's test suite, so what you read here is what actually runs.
+
+<CardGrid>
+  <LinkCard
+    title="darkcore"
+    description="A small tagged-data effect interpreter with explicit handlers. npm: @minamorl/darkcore"
+    href="/darkcore/"
+  />
+  <LinkCard
+    title="berylx"
+    description="Graphable TypeScript workflows over focused, recoverable state. npm: @minamorl/berylx"
+    href="/berylx/"
+  />
+</CardGrid>
