@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 528" class="lib-figure" role="img" aria-labelledby="gph-title">
+  <title id="gph-title">The Mermaid flowchart that Graph.toMermaid returns for the checkout, drawn: n0 validate, n1 split, n3 reserve and n4 score_risk under the split, n2 join, n5 charge, n6 release, n7 notify.</title>
+  <style>
+    .gph-node { fill: var(--sl-color-gray-6); stroke: var(--sl-color-gray-4); stroke-width: 1.5; }
+    .gph-pill { fill: var(--sl-color-black); stroke: var(--sl-color-gray-4); stroke-width: 1.5; }
+    .gph-catch { fill: var(--sl-color-gray-6); stroke: var(--sl-color-accent); stroke-width: 1.5; }
+    .gph-edge { fill: none; stroke: var(--sl-color-gray-4); stroke-width: 1.5; }
+    .gph-t { font-family: inherit; font-size: 14px; fill: var(--sl-color-white); text-anchor: middle; }
+    .gph-s { font-family: inherit; font-size: 11px; fill: var(--sl-color-gray-3); text-anchor: middle; letter-spacing: 0.04em; }
+    .gph-id { font-family: inherit; font-size: 11px; fill: var(--sl-color-accent); text-anchor: start; letter-spacing: 0.04em; }
+  </style>
+  <defs>
+    <marker id="gph-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L8 4 L0 8 Z" fill="var(--sl-color-gray-4)"/>
+    </marker>
+  </defs>
+
+  <!-- edges, in the order toMermaid emits them -->
+  <path class="gph-edge" d="M240 112 C 240 132 112 124 112 140" marker-end="url(#gph-arrow)"/>
+  <path class="gph-edge" d="M112 184 C 112 212 240 204 240 228" marker-end="url(#gph-arrow)"/>
+  <path class="gph-edge" d="M240 112 C 240 132 368 124 368 140" marker-end="url(#gph-arrow)"/>
+  <path class="gph-edge" d="M368 184 C 368 212 240 204 240 228" marker-end="url(#gph-arrow)"/>
+  <line class="gph-edge" x1="240" y1="56" x2="240" y2="84" marker-end="url(#gph-arrow)"/>
+  <line class="gph-edge" x1="240" y1="256" x2="240" y2="292" marker-end="url(#gph-arrow)"/>
+  <line class="gph-edge" x1="240" y1="336" x2="240" y2="372" marker-end="url(#gph-arrow)"/>
+  <line class="gph-edge" x1="240" y1="416" x2="240" y2="452" marker-end="url(#gph-arrow)"/>
+
+  <!-- n0 validate -->
+  <rect class="gph-node" x="176" y="16" width="128" height="40" rx="8"/>
+  <text class="gph-t" x="240" y="41">validate</text>
+  <text class="gph-id" x="312" y="40">n0</text>
+
+  <!-- n1 split -->
+  <rect class="gph-pill" x="208" y="88" width="64" height="24" rx="12"/>
+  <text class="gph-s" x="240" y="104">split</text>
+  <text class="gph-id" x="280" y="104">n1</text>
+
+  <!-- n3 reserve, n4 score_risk -->
+  <rect class="gph-node" x="48" y="144" width="128" height="40" rx="8"/>
+  <text class="gph-t" x="112" y="169">reserve</text>
+  <text class="gph-id" x="184" y="168">n3</text>
+  <rect class="gph-node" x="304" y="144" width="128" height="40" rx="8"/>
+  <text class="gph-t" x="368" y="169">score_risk</text>
+  <text class="gph-id" x="440" y="168">n4</text>
+
+  <!-- n2 join -->
+  <rect class="gph-pill" x="208" y="232" width="64" height="24" rx="12"/>
+  <text class="gph-s" x="240" y="248">join</text>
+  <text class="gph-id" x="280" y="248">n2</text>
+
+  <!-- n5 charge -->
+  <rect class="gph-node" x="176" y="296" width="128" height="40" rx="8"/>
+  <text class="gph-t" x="240" y="321">charge</text>
+  <text class="gph-id" x="312" y="320">n5</text>
+
+  <!-- n6 release (a catch) -->
+  <rect class="gph-catch" x="176" y="376" width="128" height="40" rx="8"/>
+  <text class="gph-t" x="240" y="401">release</text>
+  <text class="gph-id" x="312" y="400">n6</text>
+
+  <!-- n7 notify -->
+  <rect class="gph-node" x="176" y="456" width="128" height="40" rx="8"/>
+  <text class="gph-t" x="240" y="481">notify</text>
+  <text class="gph-id" x="312" y="480">n7</text>
+</svg>

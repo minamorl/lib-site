@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 256" class="lib-figure" role="img" aria-labelledby="mrg-title">
+  <title id="mrg-title">Three-way merge. base is stock 0, risk null. left, from reserve, is stock 2, risk null. right, from score_risk, is stock 0, risk 0.12. Each branch's difference from base is on a different path, so merged is stock 2, risk 0.12. If the same path had two different values, the result would be Err merge_conflict.</title>
+  <style>
+    .mrg-node { fill: var(--sl-color-gray-6); stroke: var(--sl-color-gray-4); stroke-width: 1.5; }
+    .mrg-node-hot { fill: var(--sl-color-accent-low); stroke: var(--sl-color-accent); stroke-width: 2; }
+    .mrg-conflict { fill: none; stroke: var(--sl-color-accent); stroke-width: 1.5; stroke-dasharray: 4 4; }
+    .mrg-mark { fill: var(--sl-color-accent); }
+    .mrg-edge { fill: none; stroke: var(--sl-color-gray-4); stroke-width: 1.5; }
+    .mrg-edge-hot { fill: none; stroke: var(--sl-color-accent); stroke-width: 2; }
+    .mrg-t { font-family: inherit; font-size: 14px; fill: var(--sl-color-white); text-anchor: middle; }
+    .mrg-t-hot { font-family: inherit; font-size: 14px; font-weight: 600; fill: var(--sl-color-accent-high); text-anchor: middle; }
+    .mrg-v { font-family: inherit; font-size: 12px; fill: var(--sl-color-gray-3); text-anchor: middle; }
+    .mrg-v-hot { font-family: inherit; font-size: 12px; fill: var(--sl-color-accent-high); text-anchor: middle; }
+    .mrg-s { font-family: inherit; font-size: 11px; fill: var(--sl-color-gray-3); text-anchor: middle; letter-spacing: 0.04em; }
+    .mrg-x { font-family: inherit; font-size: 13px; font-weight: 700; fill: var(--sl-color-black); text-anchor: middle; }
+    .mrg-start { text-anchor: start; }
+  </style>
+  <defs>
+    <marker id="mrg-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L8 4 L0 8 Z" fill="var(--sl-color-gray-4)"/>
+    </marker>
+    <marker id="mrg-arrow-hot" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L8 4 L0 8 Z" fill="var(--sl-color-accent)"/>
+    </marker>
+  </defs>
+
+  <!-- base -->
+  <rect class="mrg-node" x="32" y="100" width="176" height="56" rx="8"/>
+  <text class="mrg-t" x="120" y="123">base</text>
+  <text class="mrg-v" x="120" y="143">{ stock: 0, risk: null }</text>
+  <path class="mrg-edge" d="M208 128 C 256 128 256 52 300 52" marker-end="url(#mrg-arrow)"/>
+  <path class="mrg-edge" d="M208 128 C 256 128 256 204 300 204" marker-end="url(#mrg-arrow)"/>
+  <text class="mrg-s" x="256" y="80">Δ stock</text>
+  <text class="mrg-s" x="256" y="186">Δ risk</text>
+
+  <!-- left / right -->
+  <rect class="mrg-node" x="304" y="24" width="208" height="56" rx="8"/>
+  <text class="mrg-t" x="408" y="47">left · reserve</text>
+  <text class="mrg-v" x="408" y="67">{ stock: 2, risk: null }</text>
+  <rect class="mrg-node" x="304" y="176" width="208" height="56" rx="8"/>
+  <text class="mrg-t" x="408" y="199">right · score_risk</text>
+  <text class="mrg-v" x="408" y="219">{ stock: 0, risk: 0.12 }</text>
+  <path class="mrg-edge-hot" d="M512 52 C 568 52 568 128 620 128" marker-end="url(#mrg-arrow-hot)"/>
+  <path class="mrg-edge-hot" d="M512 204 C 568 204 568 128 620 128" marker-end="url(#mrg-arrow-hot)"/>
+
+  <!-- merged -->
+  <text class="mrg-s" x="728" y="88">disjoint paths · both kept</text>
+  <rect class="mrg-node-hot" x="624" y="100" width="208" height="56" rx="8"/>
+  <text class="mrg-t-hot" x="728" y="123">merged</text>
+  <text class="mrg-v-hot" x="728" y="143">{ stock: 2, risk: 0.12 }</text>
+
+  <!-- the one thing it refuses -->
+  <rect class="mrg-conflict" x="624" y="184" width="208" height="56" rx="8"/>
+  <circle class="mrg-mark" cx="648" cy="212" r="10"/>
+  <text class="mrg-x" x="648" y="216.5">×</text>
+  <text class="mrg-v mrg-start" x="668" y="208">stock: 2  vs  stock: 9</text>
+  <text class="mrg-v-hot mrg-start" x="668" y="226">Err · merge_conflict</text>
+</svg>
