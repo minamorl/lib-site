@@ -1,0 +1,161 @@
+name: Deploy lib.minamorl.com
+
+# Push main → vultr deploys it through kyanite. Modelled on paint's
+# deploy-main.yml: loud skip when unconfigured, one deploy at a time, and a
+# post-deploy check that measures what is live instead of assuming it.
+#
+# The runner never runs kyanite itself. It holds a single-purpose SSH key whose
+# authorized_keys entry on vultr is pinned to a forced command
+# (deploy/lib-site-ci-deploy, installed as /usr/local/bin/lib-site-ci-deploy),
+# so the only things this key can say to the host are:
+#
+#   deploy <sha>   fetch, require sha ∈ origin/main, kyanite deploy + gc
+#                  ({"skipped": ...} and exit 0 when the sha has no kyanite.toml;
+#                  the run then reports "Deploy skipped" and ends green)
+#   status         kyanite status --json plus the live release's commit
+#
+# Design invariants:
+#
+#   - Deploys only from `push: main` and `workflow_dispatch` on main. There is
+#     no pull_request trigger here at all.
+#   - Serialized: one deploy at a time; a queued run never cancels a running one.
+#   - Measured: after the deploy, `status` must report the live release at
+#     exactly ${GITHUB_SHA}, and https://lib.minamorl.com/ must answer 2xx.
+#
+# ## Secrets (repository secrets; all four required)
+#
+#   DEPLOY_SSH_KEY       private half of the lib-deploy-ci key. Its own key,
+#                        revocable alone by removing one authorized_keys line.
+#   DEPLOY_HOST          vultr's address.
+#   DEPLOY_USER          SSH user on vultr (minamorl).
+#   DEPLOY_KNOWN_HOSTS   pinned host key line(s) from `ssh-keyscan -t ed25519`.
+#
+# Until they exist the deploy is skipped loudly in the run summary.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: lib-site-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to lib.minamorl.com
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Are the deploy secrets present
+        id: secrets
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          missing=""
+          [ -n "$KEY" ]         || missing="$missing DEPLOY_SSH_KEY"
+          [ -n "$HOST" ]        || missing="$missing DEPLOY_HOST"
+          [ -n "$USER" ]        || missing="$missing DEPLOY_USER"
+          [ -n "$KNOWN_HOSTS" ] || missing="$missing DEPLOY_KNOWN_HOSTS"
+          if [ -n "$missing" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Deploy skipped"
+              echo
+              echo "Missing repository secrets:$missing"
+              echo
+              echo "Nothing was sent to the host. Add the secrets and re-run"
+              echo "this workflow (deploy/README.md lists how each is made)."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "Deploy secrets are not configured — skipping."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open the SSH channel
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Pinned, never trust-on-first-use: the key can only talk to the
+          # forced command, but the host it talks to must still be ours.
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy through kyanite
+        if: steps.secrets.outputs.ready == 'true'
+        id: deploy
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          # The remote side is the forced command; the string after the host is
+          # SSH_ORIGINAL_COMMAND, not a shell. Output is kyanite's JSON, or a
+          # single {"skipped": "<reason>"} when the commit carries nothing to
+          # deploy (no kyanite.toml yet) — that is a green no-op, not a failure.
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$USER@$HOST" "deploy ${GITHUB_SHA}" | tee deploy.json
+          skipped="$(jq -r 'if type == "object" then .skipped // empty else empty end' deploy.json)"
+          if [ -n "$skipped" ]; then
+            echo "skipped=$skipped" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Deploy skipped"
+              echo
+              echo "Deploy skipped: $skipped"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "Deploy skipped: $skipped"
+          fi
+
+      - name: Verify the live release is this commit
+        if: steps.secrets.outputs.ready == 'true' && steps.deploy.outputs.skipped == ''
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$USER@$HOST" "status" > status.json
+          cat status.json
+          state="$(jq -r '.kyanite[0].latest.state // "none"' status.json)"
+          live="$(jq -r '.live.commit // "none"' status.json)"
+          echo "latest state: $state"
+          echo "live commit:  $live"
+          if [ "$state" != "live" ] || [ "$live" != "$GITHUB_SHA" ]; then
+            echo "Live release is not ${GITHUB_SHA} (state=$state, live=$live)." >&2
+            exit 1
+          fi
+
+      - name: Verify the site answers over Cloudflare
+        if: steps.secrets.outputs.ready == 'true' && steps.deploy.outputs.skipped == ''
+        run: |
+          # -f makes a non-2xx fail the step; a few retries cover the
+          # edge picking up the new origin state.
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS -o /dev/null -w '%{http_code}\n' https://lib.minamorl.com/; then
+              {
+                echo "### Deployed"
+                echo
+                echo "\`${GITHUB_SHA}\` is live at https://lib.minamorl.com/"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "attempt $attempt failed; retrying"
+            sleep 10
+          done
+          echo "https://lib.minamorl.com/ never answered 2xx." >&2
+          exit 1
+
+      - name: Shred the key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# kyanite-nginx — the `--nginx` binary kyanite validates and reloads through.
+#
+# kyanite's router runs `<nginx> -t` and `<nginx> -s reload` as the deploying
+# user with no sudo in between. As minamorl, `/usr/sbin/nginx -t` fails with
+# Permission denied (measured), so this shim lifts exactly those two calls to
+# root via sudo -n (NOPASSWD) and refuses everything else. Installed to
+# /usr/local/bin/kyanite-nginx by deploy/vultr-bootstrap.sh.
+set -euo pipefail
+
+NGINX=/usr/sbin/nginx
+
+case "$*" in
+    "-t"|"-s reload")
+        exec sudo -n "$NGINX" "$@"
+        ;;
+    *)
+        echo "kyanite-nginx: refusing arguments: $*" >&2
+        exit 64
+        ;;
+esac

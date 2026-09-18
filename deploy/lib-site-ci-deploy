@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+# lib-site-ci-deploy — ssh forced command for the lib-site CI deploy key.
+#
+# authorized_keys line on vultr:
+#   restrict,command="/usr/local/bin/lib-site-ci-deploy" ssh-ed25519 AAAA... lib-deploy-ci
+#
+# The client's requested command arrives in SSH_ORIGINAL_COMMAND. Only two
+# forms are accepted; anything else exits 64 without touching the host:
+#
+#   deploy <40-hex sha>   fetch, require sha ∈ origin/main, reset the deploy
+#                         checkout to it, kyanite deploy + gc. JSON on stdout.
+#                         No kyanite.toml at that sha → {"skipped":...}, exit 0.
+#   status                kyanite status --json, wrapped with the live
+#                         release's source commit read from the ledger
+#                         (kyanite's own status JSON does not carry it).
+#
+# Exit codes: 64 usage, 65 sha not on origin/main, otherwise the failing
+# command's own code (kyanite prints its error envelope as JSON on stderr).
+set -euo pipefail
+
+APP=lib.minamorl.com
+CHECKOUT=/home/minamorl/repos/lib-site
+MANIFEST="$CHECKOUT/kyanite.toml"
+KYANITE=/usr/local/bin/kyanite
+KYANITE_NGINX=/usr/local/bin/kyanite-nginx
+STATE_DIR=/var/lib/kyanite
+LOCK=/tmp/lib-site-ci-deploy.lock
+LOCK_WAIT_SECONDS=900
+
+usage() {
+    echo "lib-site-ci-deploy: expected 'deploy <40-hex sha>' or 'status', got: ${SSH_ORIGINAL_COMMAND:-<empty>}" >&2
+    exit 64
+}
+
+# Read the live release's source commit straight from the ledger. Read-only
+# (mode=ro) so it can never contend with a kyanite write. Prints "null" when
+# there is no ledger, no app, or no live deployment yet.
+live_commit() {
+    python3 - "$STATE_DIR/ledger.sqlite" "$APP" <<'PY'
+import json, os, sqlite3, sys
+path, app = sys.argv[1], sys.argv[2]
+if not os.path.exists(path):
+    print("null"); sys.exit(0)
+conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+row = conn.execute(
+    """
+    SELECT releases.source_commit, releases.id, deployments.id
+    FROM deployments
+    JOIN apps ON apps.id = deployments.app_id
+    JOIN releases ON releases.id = deployments.release_id
+    WHERE apps.name = ?
+      AND deployments.environment_kind = 'production'
+      AND deployments.state = 'live'
+    ORDER BY deployments.created_at_ms DESC, deployments.sequence DESC
+    LIMIT 1
+    """,
+    (app,),
+).fetchone()
+print(json.dumps(None if row is None else
+                 {"commit": row[0], "release_id": row[1], "deployment_id": row[2]}))
+PY
+}
+
+status() {
+    local kyanite_json
+    kyanite_json="$("$KYANITE" status "$APP" --json)"
+    jq -n --argjson kyanite "$kyanite_json" --argjson live "$(live_commit)" \
+        '{app: $ENV.APP, kyanite: $kyanite, live: $live}'
+}
+
+deploy() {
+    local sha="$1"
+    # One deploy at a time on this host; a second CI run waits, never overlaps.
+    exec 9>"$LOCK"
+    flock -w "$LOCK_WAIT_SECONDS" 9
+
+    git -C "$CHECKOUT" fetch --quiet origin
+    if ! git -C "$CHECKOUT" merge-base --is-ancestor "$sha" origin/main; then
+        echo "lib-site-ci-deploy: $sha is not an ancestor of origin/main; refusing" >&2
+        exit 65
+    fi
+    # This checkout exists only for deploys; nothing is ever edited in it.
+    git -C "$CHECKOUT" reset --hard --quiet "$sha"
+
+    # The image (Dockerfile) and manifest (kyanite.toml) land on main
+    # separately from this delivery path. Until they exist a push to main is
+    # not deployable, and that is not an error: report it as skipped so CI
+    # stays green rather than red for every commit in between.
+    if [[ ! -f $MANIFEST ]]; then
+        printf '{"skipped":"no kyanite.toml at %s"}\n' "$sha"
+        exit 0
+    fi
+
+    "$KYANITE" deploy "$APP" "$sha" \
+        --manifest "$MANIFEST" \
+        --state-dir "$STATE_DIR" \
+        --nginx "$KYANITE_NGINX" \
+        --json
+    "$KYANITE" gc "$APP" \
+        --manifest "$MANIFEST" \
+        --state-dir "$STATE_DIR" \
+        --nginx "$KYANITE_NGINX" \
+        --json
+}
+
+export APP
+# Split on whitespace only; the grammar has no quoting.
+read -r -a words <<<"${SSH_ORIGINAL_COMMAND:-}"
+case "${words[0]:-}" in
+    deploy)
+        [[ ${#words[@]} -eq 2 ]] || usage
+        [[ ${words[1]} =~ ^[0-9a-f]{40}$ ]] || usage
+        deploy "${words[1]}"
+        ;;
+    status)
+        [[ ${#words[@]} -eq 1 ]] || usage
+        status
+        ;;
+    *)
+        usage
+        ;;
+esac
