@@ -1,0 +1,95 @@
+---
+// Two things side by side (code blocks, usually), each with a title and a line
+// count badge, and one caption for the pair. Stacks to one column when a
+// column would be narrower than --lib-compare-column. Slots: left, right.
+interface Props {
+  leftTitle: string;
+  rightTitle: string;
+  leftLines?: number;
+  rightLines?: number;
+  caption?: string;
+  /** Let the pair grow past the content column, up to --lib-compare-width. */
+  wide?: boolean;
+}
+const { leftTitle, rightTitle, leftLines, rightLines, caption, wide = false } = Astro.props;
+const badge = (n: number | undefined) => (n === undefined ? null : `${n} lines`);
+---
+
+<figure class:list={['compare', { wide }]}>
+  <div class="columns">
+    <div class="column">
+      <div class="head">
+        <span class="title">{leftTitle}</span>
+        {leftLines !== undefined && <span class="badge">{badge(leftLines)}</span>}
+      </div>
+      <slot name="left" />
+    </div>
+    <div class="column">
+      <div class="head">
+        <span class="title">{rightTitle}</span>
+        {rightLines !== undefined && <span class="badge">{badge(rightLines)}</span>}
+      </div>
+      <slot name="right" />
+    </div>
+  </div>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  .compare {
+    margin: 0;
+  }
+  .compare.wide {
+    /* Grow past the content column (parent) up to --lib-compare-width, and
+       keep the block centred under the column it grew out of. */
+    --compare-w: min(100vw - 4 * var(--sl-content-pad-x), var(--lib-compare-width));
+    width: var(--compare-w);
+    max-width: none;
+    margin-inline-start: calc((100% - var(--compare-w)) / 2);
+  }
+  .columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--lib-compare-column)), 1fr));
+    gap: var(--lib-space-6);
+    align-items: start;
+  }
+  /* Starlight's markdown styles give every sibling a top margin; the grid
+     and the code block under the head must not inherit that. */
+  :global(.sl-markdown-content) .columns > .column,
+  :global(.sl-markdown-content) .head + :global(*) {
+    margin-top: 0;
+  }
+  .column {
+    min-width: 0;
+  }
+  .head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--lib-space-2);
+    margin-bottom: var(--lib-space-2);
+  }
+  .title {
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+  .badge {
+    font-family: var(--__sl-font-mono);
+    font-size: var(--sl-text-2xs);
+    line-height: 1;
+    padding: var(--lib-space-1) var(--lib-space-2);
+    border: var(--lib-hairline) solid var(--sl-color-hairline-light);
+    border-radius: var(--lib-radius-pill);
+    color: var(--sl-color-gray-2);
+    background: var(--sl-color-gray-6);
+    font-variant-numeric: tabular-nums;
+  }
+  .column > :global(.expressive-code) {
+    margin: 0;
+  }
+  figcaption {
+    margin-top: var(--lib-space-3);
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+</style>

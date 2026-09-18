@@ -1,632 +1,271 @@
 ---
 title: berylx
-description: Composable, inspectable TypeScript workflows over focused, recoverable state. An introduction to @minamorl/berylx 0.3.0.
+description: The card fails. The flow holds. Compose a TypeScript checkout with parallel state, explicit recovery, and a workflow you can inspect.
+template: splash
 sidebar:
-  label: Introduction
+  label: berylx
   order: 1
 ---
 
-`@minamorl/berylx` composes multistep workflows out of named tasks. Every task
-is a function from a `Focus` on immutable state to a result: `Ok` with the
-updated state, or `Err` with the partial state reached so far and a structured
-error. Tasks compose in sequence, in parallel, by condition, and under recovery
-handlers, and the composed workflow can be inspected, dry-run, or rendered as a
-graph before it is executed. A `Root` owns committed state and commits a
-workflow's result only when the whole workflow succeeds.
+import {
+  CardGrid,
+  Code,
+  LinkCard,
+  Tabs,
+  TabItem,
+} from "@astrojs/starlight/components";
+import Act from "../../../components/Act.astro";
+import Compare from "../../../components/Compare.astro";
+import BerylxHero from "../../../components/BerylxHero.astro";
+import MergeFigure from "../../../assets/berylx/merge.svg";
+import GraphFigure from "../../../assets/berylx/graph.svg";
+import { Graph, EffectTree } from "@minamorl/berylx";
+import { checkout } from "../../../../examples/berylx/showcase/_workflow.ts";
+import { initial } from "../../../../examples/berylx/showcase/_checkout.ts";
+import workflowSrc from "../../../../examples/berylx/showcase/_workflow.ts?raw";
+import checkoutSrc from "../../../../examples/berylx/showcase/checkout.ts?raw";
+import byHandSrc from "../../../../examples/berylx/showcase/checkout-by-hand.ts?raw";
+import mergeSrc from "../../../../examples/berylx/showcase/merge.ts?raw";
+import effectSrc from "../../../../examples/berylx/showcase/checkout-effect.ts?raw";
+import xstateSrc from "../../../../examples/berylx/showcase/checkout-xstate.ts?raw";
+import neverthrowSrc from "../../../../examples/berylx/showcase/checkout-neverthrow.ts?raw";
+import inspectSrc from "../../../../examples/berylx/showcase/inspect.ts?raw";
+import fixtureSrc from "../../../../examples/berylx/showcase/_checkout.ts?raw";
 
-```ts
-import { berylx } from "@minamorl/berylx";
+export const composition = workflowSrc
+  .split("// showcase:composition:start\n")[1]
+  .split("// showcase:composition:end")[0]
+  .trim();
+export const recovery = workflowSrc
+  .slice(
+    workflowSrc.indexOf("const release ="),
+    workflowSrc.indexOf("// showcase:composition:start"),
+  )
+  .trim();
+export const handJoin = byHandSrc
+  .slice(byHandSrc.indexOf("  const [l, r]"), byHandSrc.indexOf("  try {"))
+  .trim();
+export const mermaid = Graph.from(checkout, "checkout").toMermaid();
+export const plan = EffectTree.dryRun(checkout, initial).steps;
+export const dryRunOut = `EffectTree.dryRun(checkout, initial).steps\n// → ${JSON.stringify(plan).replaceAll(",", ", ")}`;
 
-interface Greeting {
-  name: string;
-  greeting: string;
-}
+<BerylxHero composition={composition} />
 
-const b = berylx<Greeting>();
+<Act
+  number="01"
+  kicker="one checkout, two outcomes"
+  title="Keep the state. Handle the failure."
+  id="recovery"
+/>
 
-const stripName = b.task("strip_name", (f) =>
-  f.at("name").update((name) => name.trim()),
-);
-const greet = b.task("greet", (f) =>
-  f.at("greeting").set(`Hello, ${f.at("name").get()}!`),
-);
+Order #4127 reserves **2 units at tokyo-2** while its risk score is calculated. The card then declines. The recovery handler needs those exact reservation details: clear the held stock, record the failure, and stop before notifying the customer.
 
-const root = b.root({ name: "  Mina  ", greeting: "" });
-const result = root.pipe(stripName.then(greet));
+`berylx` composes named tasks over one immutable state. `then` passes successful state forward. `par` runs branches from the same snapshot and merges their changes. A `catch` receives the state at the failed node. Here, `release` handles the failure and returns another `Err`, so `notify` never runs.
 
-result.focus.toObject(); // { name: 'Mina', greeting: 'Hello, Mina!' }
-root.state(); // the same object: the root committed the Ok
-```
+<Code
+  code={recovery}
+  lang="ts"
+  title="Your recovery handler, with the state it needs"
+/>
 
-This page documents version 0.3.0. It is a TypeScript port of the Ruby
-[berylx](https://github.com/minamorl/berylx) gem; the execution engine is a
-bundled TypeScript port of [darkcore](https://github.com/minamorl/darkcore-ruby).
+**This is an executable in-memory example.** The service steps are deterministic stand-ins; no inventory or payment API is called. Clearing a field does not cancel a real reservation. External compensation, including failures while compensating, is application code. Keeping committed state unchanged does not undo side effects.
 
-## What it solves, and what it leaves to you
+<details>
+  <summary>Run it: asynchronous tasks, explicit commit, and both outcome checks</summary>
 
-Berylx is for the shape of a workflow inside one process: which steps run,
-in what order, what happens when one fails, and what state survives. It gives
-you:
+The async API in `@minamorl/berylx` **0.3.0** is `AsyncTask.of` with `EffectTree.runAsync`. Both branches start concurrently. The runner returns a result; **the caller commits only an `Ok`**. The synchronous `root.pipe` API supplies that policy automatically, but it does not run async tasks. [API source](https://github.com/minamorl/berylx-ts#asynchronous-tasks).
 
-- one immutable state value threaded through every step, with typed path access;
-- failure as a value (`Err`) that keeps the partial state and a machine-readable
-  error, instead of a thrown exception that loses both;
-- combinators with fixed semantics: `then` short-circuits, `par` joins with a
-  three-way merge, `When`/`Else` selects an arm, `Catch`/`rescueWith` recover;
-- a single commit point (`Root`) so a half-finished workflow never becomes
-  observable state;
-- structure you can look at: `Graph` for the shape, `EffectTree.dryRun` for the
-  plan, and a handler map you can wrap for auditing or retries.
+<Code
+  code={workflowSrc}
+  lang="ts"
+  title="examples/berylx/showcase/_workflow.ts"
+/>
+<Code
+  code={checkoutSrc}
+  lang="ts"
+  title="examples/berylx/showcase/checkout.ts"
+/>
 
-It does not persist state, schedule jobs, retry on a timer, or coordinate
-across processes. Those belong to the application that runs the workflow.
-Committing or rejecting state also does not undo external side effects a task
-already performed; compensation is recovery logic you write.
+</details>
 
-## Installation
+<details>
+  <summary>The shared input and expected results</summary>
+  <Code
+    code={fixtureSrc}
+    lang="ts"
+    title="examples/berylx/showcase/_checkout.ts"
+  />
+</details>
+
+<Act
+  number="02"
+  kicker="same state, same outcomes"
+  title="What you would write by hand."
+  id="by-hand"
+/>
+
+Plain TypeScript can do this well. You decide how to join the branches, keep the partial state available to recovery, and place the commit after successful execution. Here is the join in our hand-written version, beside the berylx composition.
+
+<Compare
+  leftTitle="Hand-written join"
+  rightTitle="Composed join"
+  caption="Excerpts from the executable examples. These compare responsibilities, not minimum line counts or performance."
+>
+  <Code slot="left" code={handJoin} lang="ts" title="async / await" wrap />
+  <Code slot="right" code="reserve.par(score)" lang="ts" title="berylx" />
+</Compare>
+
+| Responsibility        | By hand in this example                                     | With berylx in this example                                               |
+| --------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Join the branches     | Pick `stock` from one result and `risk` from the other.     | `par` compares each branch with the common base and merges changed paths. |
+| Preserve failed state | Keep `current` in a closure, then attach it to an error.    | `Err.focus` carries the partial state into the `catch` handler.           |
+| Commit on success     | The function reaches `committed = current` only on success. | With the async runner, explicitly guard `root.commit` with `Ok`.          |
+
+Object spread is fine for patches with known ownership. It is **not a three-way merge of whole snapshots**: `{ ...left, ...right }` can replace a changed `stock` with the other branch's untouched copy. The full file demonstrates that pitfall separately before doing the join correctly.
+
+<details>
+  <summary>Read the complete hand-written version</summary>
+  <Code
+    code={byHandSrc}
+    lang="ts"
+    title="examples/berylx/showcase/checkout-by-hand.ts"
+  />
+</details>
+
+<Act
+  number="03"
+  kicker="the syntax has semantics"
+  title="Split the work. Keep both changes."
+  id="the-merge"
+/>
+
+`par` uses `Merge.strict()` by default: **base, left, right**. Disjoint paths survive together. Two different writes to the same path return `Err(merge_conflict)` with the base state, so you choose how to resolve the collision.
+
+<MergeFigure />
+
+<Code
+  code={mergeSrc}
+  lang="ts"
+  title="Two independent updates. One explicit conflict."
+/>
+
+<Act
+  number="04"
+  kicker="choose the abstraction you need"
+  title="Where berylx fits."
+  id="compare"
+/>
+
+These libraries solve different problems. The comparison below is about **how our checkout examples are written**, not a claim that another library cannot express the same behavior.
+
+|                      | What you compose                                             | How this checkout keeps recovery state                                                              | Choose it for                                                                      |
+| -------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **berylx 0.3.0**     | Named tasks, `then`, `par`, and `catch`.                     | `Err.focus`, provided to the catch handler.                                                         | An inspectable workflow over one state object, with a defined merge law.           |
+| **Effect 3.22.2**    | Effects with typed success, error, and environment channels. | This sample uses `Ref` and a typed `CheckoutFailed` error; immutable values are another option.[^1] | A broader effect system with structured concurrency, services, and scheduling.[^2] |
+| **XState 5.33.2**    | States, events, transitions, and actors.                     | Context at the `onError` transition.[^3]                                                            | Event-driven behavior, explicit statecharts, and actor inspection.[^4]             |
+| **neverthrow 8.2.0** | `Result` / `ResultAsync`, `andThen`, and `orElse`.           | This sample closes over state, then places it in `CheckoutFailed`.[^5]                              | Typed success and failure values with a small composition surface.                 |
+
+All five implementations check the **same accepted-card and declined-card results**, using the shared fixture and async execution. They are illustrative implementations, not minimal programs, benchmarks, or a proof of equivalent behavior for every failure. Validation and other untested failures may differ. No line-count ranking is used.
+
+<details>
+  <summary>Compare the executable implementations</summary>
+
+<Tabs>
+  <TabItem label="berylx">
+    <Code code={workflowSrc} lang="ts" title="_workflow.ts" />
+    <Code code={checkoutSrc} lang="ts" title="checkout.ts" />
+  </TabItem>
+  <TabItem label="Effect">
+    <Code code={effectSrc} lang="ts" title="checkout-effect.ts" />
+  </TabItem>
+  <TabItem label="XState">
+    <Code code={xstateSrc} lang="ts" title="checkout-xstate.ts" />
+  </TabItem>
+  <TabItem label="neverthrow">
+    <Code code={neverthrowSrc} lang="ts" title="checkout-neverthrow.ts" />
+  </TabItem>
+</Tabs>
+
+</details>
+
+berylx runs **inside your process**. It does not provide durable execution, a scheduler, or a retry policy. If workflows must survive process loss, a durable platform such as [Temporal](https://docs.temporal.io/evaluate/understanding-temporal) addresses that different requirement.
+
+<Act
+  number="05"
+  kicker="the workflow is a value"
+  title="See the shape before it runs."
+  id="inspect"
+/>
+
+`Graph.from(checkout).toMermaid()` is computed below from the **actual async checkout**, including its real task definitions. The drawing shows that structural graph. It includes `release` and `notify`; whether recovery runs or notification is skipped depends on the execution result.
+
+<Compare leftTitle="Generated Mermaid" rightTitle="The same structural graph">
+  <Code
+    slot="left"
+    code={mermaid}
+    lang="mermaid"
+    title="Graph.from(checkout).toMermaid()"
+  />
+  <GraphFigure slot="right" />
+</Compare>
+
+`dryRun` is a **structural traversal, not a payment simulation**. Task bodies become successful identity operations. It therefore lists `notify` and skips the catch handler even for the declined-card input. Branch predicates are evaluated against the supplied state; task updates and failures are not predicted.
+
+<Code
+  code={dryRunOut}
+  lang="ts"
+  title="Structural dry run · no service calls"
+/>
+
+<details>
+  <summary>Inspect and verify the graph yourself</summary>
+  <Code
+    code={inspectSrc}
+    lang="ts"
+    title="examples/berylx/showcase/inspect.ts"
+  />
+</details>
+
+<Act
+  number="06"
+  kicker="your next workflow"
+  title="Make the flow explicit."
+  id="get-it"
+/>
 
 ```sh
 npm install @minamorl/berylx
 ```
 
-Source: [minamorl/berylx-ts](https://github.com/minamorl/berylx-ts) · npm: [@minamorl/berylx](https://www.npmjs.com/package/@minamorl/berylx)
-
-The package is ESM only, ships TypeScript declarations, and requires Node.js 18
-or later. The examples on this site run unmodified on Node 24.
-
-## State: Focus
-
-`Focus<S, P>` (alias `Lay`) is an immutable view of a root state `S` at a path
-`P`. `at(key)` moves one level deeper without reading anything; `get()` reads
-the value at the current path; `set(value)`, `update(fn)`, and `put(key, value)`
-return a **new focus at the root** with the change applied. The original focus
-is unchanged.
-
-```ts
-import { Focus } from "@minamorl/berylx";
-
-const original = Focus.of({ user: { name: "  Mina  ", age: 21 } });
-const updated = original
-  .at("user")
-  .at("name")
-  .update((name) => name.trim());
-
-original.at("user").at("name").get(); // '  Mina  '
-updated.at("user").at("name").get(); // 'Mina'
-updated.path; // [] — set/update return to the root
-
-// @ts-expect-error 'nmae' is not a key of user
-original.at("user").at("nmae");
-```
-
-The path is part of the type. `at` only accepts keys that exist at the current
-path (`KeysAt<S, P>`), and `get` returns the type found there (`PathAt<S, P>`).
-`set` must receive that same type: it never widens the state type, so declare
-every field a later step will fill in your state interface.
-
-Reading a path that does not exist throws `KeyError` from `get()`. The
-alternatives are `get({ default })` / `fetch(default)`, `maybe()` (returns
-`null`), `present()` (boolean), and `required(code?, message?)`, which returns
-`Ok(this)` or an `Err` carrying this focus.
-
-Plain objects and arrays given to a focus are defensively copied and deeply
-frozen, so a caller mutating its own input afterwards does not change the
-focus. `Map`, `Set`, `Date`, typed arrays, and class instances are kept as
-supplied and their internals are not frozen.
-
-## Results: Ok and Err
-
-```ts
-type Result<S> = Ok<S> | Err<S>;
-```
-
-Both carry a `focus` at the root. `Ok` is the updated state. `Err` is the
-partial state at the moment of failure plus a `BerylxError` with `code`,
-`message`, `failedNode`, `trace`, `parallelErrors`, `metadata`, `cause`, and a
-`fatal()` flag. `Err` exposes the common fields directly (`err.code`,
-`err.failedNode`, …).
-
-A task fails in one of two ways:
-
-- `focus.reject(code, message?)` returns an `Err` with that code and this focus
-  as partial state. This is the domain-failure path.
-- A thrown exception is caught and converted to an `Err` whose code is the
-  error's `name` (`'TypeError'`, `'Error'`), with the exception in `cause`.
-
-Nothing is unwrapped implicitly. `err.unwrap()` throws the original `cause` if
-there is one, otherwise the `BerylxError` itself. Check with `isOk()` /
-`isErr()` or `instanceof Ok` / `instanceof Err`.
-
-```ts
-const result = b.flow(state).call(workflow);
-if (result instanceof Err) {
-  result.code; // 'payment_failed'
-  result.failedNode; // 'charge'
-  result.focus.toObject(); // state as it was when 'charge' failed
-}
-```
-
-A task callback may return a `Focus` at any path, an `Ok`/`Err`, or a raw
-state object; each is normalised to a `Result`. Always return something:
-a callback that returns `undefined` is normalised to an `Ok` over an empty
-object, which replaces your state.
-
-## Root: committed state
-
-`Root<S>` is the single owner of committed state at a workflow boundary.
-
-- `root.pipe(node)` runs the node from the committed state and, **only if the
-  result is `Ok`**, commits its focus. On `Err` the root keeps the previous
-  committed state; the returned `Err` still carries the partial state for
-  inspection or logging.
-- `root.state()` returns the committed value (deeply frozen).
-- `root.commit(value)` commits explicitly. A `Focus`, `Ok`, or `Err` commits
-  its focus; a plain object is deep-merged into the current state.
-- `root.subscribe(fn)` delivers a `{ type: 'snapshot', value }` event
-  immediately and a `{ type: 'commit', value }` event for each commit, and
-  returns an unsubscribe function. `root.history` holds the commit events.
-
-There is no partial commit: a sequence of five tasks commits once, after the
-fifth succeeds.
-
-## Tasks and composition
-
-### Declaring the state type once
-
-`berylx<S>()` returns factories bound to one state type, so you never repeat
-the type parameter:
-
-```ts
-const b = berylx<Order>();
-b.task(name, block)        // Task<Order>
-b.asyncTask(name, block)   // AsyncTask<Order>
-b.when(name, predicate)    // When<Order>
-b.catch(name, handler?, options?, block?)
-b.focus(value) / b.lay(value)
-b.flow(value)              // Flow<Order>
-b.root(value)              // Root<Order>
-b.state(value)             // State<Order>
-```
-
-These return the same classes as `Task.of<S>`, `Flow.of`, `Root.of`, and so on;
-there is no separate execution path. Untyped use (`Task.of(...)`,
-`Focus<any>`) remains available.
-
-### Task and AsyncTask
-
-`Task.of(name, (focus) => ...)` is a named synchronous transition.
-`AsyncTask.of(name, async (focus) => ...)` is the asynchronous form; its
-callback may return a promise. Both convert ordinary exceptions to `Err`, and
-both add their name to `failedNode` and `trace` on failure.
-
-Workflows containing an `AsyncTask` must run through `EffectTree.runAsync`.
-Calling one on the synchronous path (`Flow.call`, `Root.pipe`) throws rather
-than returning a wrong result. Synchronous `Task`s may appear freely inside an
-async workflow.
-
-### Sequence: then
-
-`a.then(b)` runs `b` from the `Ok` focus of `a`. If `a` returns `Err`, `b` does
-not run and the `Err` is the result of the sequence. Nested sequences flatten.
-
-### Parallel: par and Merge
-
-`a.par(b)` runs both branches **from the same base snapshot** and joins their
-results. Ordinary `Task` branches run synchronously in declaration order; in
-`runAsync` all branches are started together and awaited with
-`Promise.allSettled`.
-
-Joining uses a reducer. The default, `Merge.strict()`, is a three-way join over
-`(base, left, right)`:
-
-- a branch that leaves the state unchanged does not erase another branch's work
-  (`μ_b(b, x) = x` and `μ_b(x, b) = x`);
-- changes to different paths, including nested ones, are both preserved;
-- identical updates to the same path are accepted;
-- incompatible updates to the same path produce an `Err` with code
-  `merge_conflict`, `failedNode: 'parallel'`, and the conflicting path, values,
-  and base in `metadata`. The result focus is the base snapshot.
-
-`Merge.deep()` is a two-way, right-biased merge that ignores the base and can
-overwrite an independent update made by the left branch. `Merge.keepLeft()`
-and `Merge.keepRight()` select one side. Choose these explicitly with
-`.reduce(reducer)` on a `Parallel`.
-
-Failure policy is separate from merging. `short_circuit` (default) returns the
-first failing branch's `Err` in branch order. `.accumulate()` runs every branch
-and returns one `Err` with code `parallel_failed` whose `parallelErrors` lists
-each branch failure.
-
-`par()` is typed as `BerylxNode<S>`; to call `.reduce()`, `.accumulate()`, or
-`.shortCircuit()` construct `new Parallel([a, b])` directly.
-
-### Branch: When and Else
-
-```ts
-const route = b
-  .when("is_pro", (f) => f.at("plan").get() === "pro")
-  .then(allocateSeats)
-  .or(Else.then(singleSeat));
-```
-
-`When.of(name, predicate).then(body)` is a one-arm `Branch`; `.or(otherBranch)`
-appends arms. Arms are tried in order and the first matching predicate wins.
-`Else` is an unconditional arm. If no arm matches, the result is `Err` with
-code `no_branch_matched`. Predicates run synchronously in both interpreters and
-should be pure; dry runs evaluate them.
-
-### Recovery: Catch and rescueWith
-
-Two forms, one handler type. A handler is either a node (run from the partial
-focus) or a callback `(error, focus, perform?) => ...` where `error` is the
-failure's `cause` if it has one, otherwise the `BerylxError`.
-
-- `a.then(Catch.of(name, handlerNode | null, { fatal? }, block?))` is a
-  **boundary inside a sequence**. When the preceding result is `Err`, the
-  handler runs from the partial focus and its `Ok` lets the rest of the
-  sequence continue. An `Ok` passes through untouched. Errors marked `fatal`
-  are skipped unless the boundary opts in with `{ fatal: true }`.
-- `node.rescueWith(handlerNode | null, name?, block?)` wraps a node: if the body
-  returns `Err`, the handler's result replaces it.
-
-If the handler itself fails, the result is the handler's `Err` with the
-original error preserved in `metadata.rescuedError`.
-
-### Flow and State
-
-`Flow.of(value).call(node, handlers?)` executes a node from a raw value or a
-focus and returns the `Result` without committing anywhere. It is the
-"execute without a root" entry point, and the one that accepts a custom
-handler map.
-
-`State.of(value)` is a small builder in state space: `state.pipe(node)`
-executes immediately, `state.and(node)` appends to a pending sequence without
-running it, and `state.call()` runs the pending sequence. `root.toState()`
-gives a `State` over the committed focus.
-
-### Workflow
-
-`Workflow.of(name, () => body)` names a composed node so that `compile()`
-produces a `Graph` with that name. Run it with `workflow.call(focus)` or extend
-it with `workflow.then(...)`, which unwraps to the body. A `Workflow` instance
-itself is not an effect-tree node: passing it to `Flow.call`, `Root.pipe`, or
-`EffectTree.dryRun` throws; use `workflow.body` there.
-
-## Execution: EffectTree, Perform, ControlSignal
-
-Composed nodes are not run by recursion. `EffectTree.build(node, focus)`
-compiles the workflow into a darkcore `Effect` tree: each task, parallel group,
-branch, and rescue becomes a tagged effect (`berylx_task`, `berylx_parallel`,
-`berylx_branch`, `berylx_rescue`, `berylx_recover`) whose payload is the node
-and the focus, not an opaque closure. `EffectTree.run(node, focus, handlers)`
-folds that tree with a handler map. `Flow.call`, `Root.pipe`, and every
-node's `.call()` go through this path with `EffectTree.realHandlers()`.
-
-### Handler maps and Perform
-
-Because execution is a handler map, tasks can perform **custom effects** and
-the caller decides what those effects do:
-
-```ts
-const lookup = b.task("lookup", (f, perform) =>
-  f.at("price").set(perform.perform("price_of", f.at("sku").get()) as number),
-);
-
-const handlers = EffectTree.realHandlers({
-  price_of: (sku) => catalogue.get(sku as string) ?? 0,
-});
-
-b.flow({ sku: "A", price: 0 }).call(lookup, handlers);
-```
-
-A callback becomes effectful by **declaring a second parameter** (a third for
-recovery callbacks). `Perform.perform(tag, payload)` dispatches to the handler
-registered under `tag`. A missing tag throws inside the callback and therefore
-surfaces as an `Err` (code `'Error'`, message `no handler for effect: …`);
-so does calling an effectful task directly with no performer. The reserved
-`pure` tag is rejected, and custom tags may not collide with the five
-`berylx_*` tags. The same map is passed down into parallel branches, branch
-arms, and recovery handlers.
-
-`EffectTree.around(effects, (tag, payload, inner) => ...)` wraps every handler,
-including the built-in ones, and propagates the wrapped map to subtrees, which
-is where auditing, timing, or retry policy goes without touching workflow
-definitions. `asyncRealHandlers` and `aroundAsync` are the asynchronous
-counterparts.
-
-### Dry runs
-
-`EffectTree.dryRun(node, state)` interprets the same tree with handlers that
-record task names instead of running task bodies. It returns `{ result, steps }`
-where `steps` is the list of task names in execution order for that state and
-`result` is `Ok` over the unchanged input. Branch predicates are evaluated
-against the supplied state; parallel branches are listed in declaration order;
-a rescue lists only its body, because a dry run never fails.
-
-### ControlSignal
-
-`ControlSignal` is an `Error` subclass that **escapes** the interpreter instead
-of being converted to `Err`. Throw a subclass from a task or handler when the
-host runtime needs to stop execution outright (a cancellation, a scheduler
-yield); it propagates through `par`, `then`, and recovery to the caller of
-`Flow.call` / `Root.pipe` unchanged.
-
-## Inspection: Graph
-
-`Graph.from(node, name?)` (or `node.compile()`) wraps a node for inspection:
-
-- `nodes()` lists leaf task names in traversal order;
-- `parallelNodes()` lists the task names of each parallel group;
-- `toDot()` renders a Graphviz digraph with `split`/`join` nodes for parallel
-  groups and labelled edges (`is_pro`, `else`) for branch arms;
-- `toMermaid()` renders the same structure as a `flowchart TD` with `n0, n1, …`
-  IDs and task names as labels.
-
-## Darkcore as the effect substrate
-
-The `Darkcore` namespace export is the bundled TypeScript port of darkcore:
-`Effect`, `pure`, `op`, `perform`, `fold`, `run`, `foldAsync`, `runAsync`,
-`PURE`, the `HandlerMap` / `AsyncHandlerMap` types, plus `Maybe` (`Just`,
-`Nothing`), `Either` (`Left`, `Right`), `Result` (`Ok`, `Err`), `State`,
-`Validation` (`Success`, `Failure`), and `IOEffects` with `VirtualWorld`. Berylx uses only the
-effect core: `bind` joins tree structure, and all workflow semantics —
-short-circuiting, merging, recovery, error context — live in the handlers that
-`EffectTree.realHandlers()` installs. Darkcore's own `Ok`/`Err` types are
-unrelated to the workflow `Ok`/`Err`.
-
-Nothing in the tree runs until it is folded, and swapping the handler map is
-the whole mechanism behind dry runs, custom effects, and `around`.
-
-## Connecting a Root to a host: attachRoot
-
-```ts
-const detach = attachRoot<number>(root, (count, event) => render(count), {
-  select: (state) => (state as Counter).count,
-  skipSnapshot: false,
-});
-```
-
-`attachRoot(root, listener, options?)` subscribes to a root, projects each
-event's value through `select`, and calls `listener(state, event)` on the
-initial snapshot and each commit. `onSnapshot` and `onCommit` receive the same
-projected state for the respective event type; `skipSnapshot: true` suppresses
-the initial delivery. It has no framework dependency and returns an unsubscribe
-function.
-
-## The full surface
-
-Everything exported from `@minamorl/berylx`, with signatures as declared in the
-package's `dist/index.d.ts`.
-
-### State and results
-
-```ts
-class Focus<S = any, P extends readonly PathKey[] = []> {
-  static of<T>(value: T): Focus<T, []>;
-  readonly value: S; readonly path: P;
-  at<K extends KeysAt<S, P>>(key: K): Focus<S, [...P, K]>;
-  get(): PathAt<S, P>;  get<D>(options: { default: D }): PathAt<S, P> | D;
-  fetch(): PathAt<S, P>;  fetch<D>(defaultValue: D): PathAt<S, P> | D;
-  maybe(): PathAt<S, P> | null;  present(): boolean;
-  required(code?: string, message?: string): Result<S>;
-  set(nextValue: PathAt<S, P>): Focus<S, []>;
-  update(block: (current: PathAt<S, P>) => PathAt<S, P>): Focus<S, []>;
-  put<K extends KeysAt<S, P>>(key: K, nextValue: PathAt<S, [...P, K]>): Focus<S, []>;
-  reject(code: string, message?: string, options?: { cause?: unknown }): Result<S>;
-  toObject(): S;
-}
-const Lay: typeof Focus;
-class KeyError extends Error {}
-type PathKey = string | number | symbol;
-type PathAt<S, P>; type KeysAt<S, P>;
-
-type Result<S = any> = Ok<S> | Err<S>;
-class Ok<S>  { readonly focus: Focus<S, []>; pipe(node: Callable): Result<S>; isOk(): this is Ok<S>; isErr(): this is Err<S>; }
-class Err<S> { readonly focus: Focus<S, []>; readonly error: BerylxError; unwrap(): never; toException(): unknown;
-               get code(): string; get message(): string; get cause(): unknown; get failedNode(): string | null;
-               get trace(): readonly string[]; get parallelErrors(): readonly BerylxError[]; pipe(_: Callable): Result; }
-const ResultOps: { ok, err, normalize, coerceFocus, map, bind };
-interface Callable { call(focus: unknown): Result; }
-
-class BerylxError extends Error {
-  readonly code: string; readonly cause: unknown; readonly failedNode: string | null;
-  readonly trace: readonly string[]; readonly parallelErrors: readonly BerylxError[];
-  readonly metadata: Readonly<Record<string, unknown>>;
-  static create(code, message?, context?): BerylxError;  static from(value, context?): BerylxError;
-  fatal(): boolean; withContext(context): BerylxError; prependTrace(node): BerylxError;
-  unwrap(): unknown; toObject(): { code, message, failedNode, trace, fatal, parallelErrors, metadata };
-}
-interface BerylxErrorContext { cause?; failedNode?; trace?; parallelErrors?; metadata?; fatal?: boolean }
-```
-
-### Ownership and execution entry points
-
-```ts
-class Root<S = any> {
-  static of<T>(value: T): Root<T>;
-  pipe(other: BerylxNode<S>): Result<S>;
-  call(node: BerylxNode<S>, handlers?: HandlerMap): Result<S>;
-  commit(value: unknown): this;
-  state(): S;
-  toObject(): S;
-  toLay(): Focus<S, []>;
-  toState(): State<S>;
-  at<K extends KeysAt<S, []>>(key: K): Focus<S, [K]>;
-  subscribe(block: (event: RootEvent) => void): () => void;
-  readonly history: RootEvent[];
-}
-type RootEvent =
-  | { type: "snapshot"; value: unknown }
-  | { type: "commit"; value: unknown };
-
-class Flow<S = any> {
-  static of<T>(focus: Focus<T, any> | T): Flow<T>;
-  call(node: BerylxNode<S>, handlers?: HandlerMap): Result<S>;
-  then(other: BerylxNode<S>): Result<S>;
-}
-class State<S = any> {
-  static of<T>(value: T): State<T>;
-  pipe(other: BerylxNode<S>): Result<S>;
-  and(other: BerylxNode<S>): State<S>;
-  call(node?: BerylxNode<S> | null, handlers?: HandlerMap): Result<S>;
-  toLay(): Focus<S, []>;
-}
-function run<S = any>(workflow: BerylxNode<S>, focus: unknown): Result<S>;
-function task<S = any>(name: string, block: TaskBlock<S>): Task<S>;
-
-function berylx<S>(): Berylx<S>;
-interface Berylx<S> {
-  task(name: string, block: TaskBlock<S>): Task<S>;
-  asyncTask(name: string, block: AsyncTaskBlock<S>): AsyncTask<S>;
-  when(name: string, block: (focus: Focus<S, []>) => unknown): When<S>;
-  catch(
-    name?: string,
-    handler?: RescueHandler<S> | null,
-    options?: CatchOptions,
-    block?: RescueHandlerBlock<S>,
-  ): Catch<S>;
-  focus(value: S): Focus<S, []>;
-  lay(value: S): Focus<S, []>;
-  flow(value: S | Focus<S, []>): Flow<S>;
-  root(value: S): Root<S>;
-  state(value: S): State<S>;
-}
-```
-
-### Nodes
-
-```ts
-interface BerylxNode<S = any> {
-  call(focus: unknown): Result<S>;
-  nodes(): NamedNode[];
-  then(other: BerylxNode<S>): BerylxNode<S>;
-  par(other: BerylxNode<S>): BerylxNode<S>;
-  rescueWith(handler: BerylxNode<S> | null, name?: string | null, block?: RescueHandlerBlock<S>): BerylxNode<S>;
-}
-interface NamedNode { readonly name: string }
-
-type TaskBlock<S>      = (focus: Focus<S, []>, performer: Perform) => Focus<S, any> | Result<S> | unknown;
-type AsyncTaskBlock<S> = (focus: Focus<S, []>, performer: Perform) => Promise<...> | Focus<S, any> | Result<S> | unknown;
-
-class Task<S>      implements BerylxNode<S>, NamedNode { static of<S>(name, block: TaskBlock<S>): Task<S>;
-                     call(focus, performer?: Perform): Result<S>; pipe(other): BerylxNode<S>; compile(): Graph; effectful(): boolean; }
-class AsyncTask<S> implements BerylxNode<S>, NamedNode { static of<S>(name, block: AsyncTaskBlock<S>): AsyncTask<S>;
-                     callAsync(focus, performer?: Perform): Promise<Result<S>>; call(_): never /* throws */; compile(): Graph; effectful(): boolean; }
-class Sequence<S>  implements BerylxNode<S> { readonly steps: readonly BerylxNode<S>[]; constructor(steps: BerylxNode<S>[]);
-                     static buildRescue<S>(body, handler, name?, block?): Rescue<S>; compile(): Graph; }
-class Parallel<S>  implements BerylxNode<S> { readonly branches; readonly reducer: Reducer<S>; readonly onErr: ParallelOnErr;
-                     constructor(branches: BerylxNode<S>[], reducer?: Reducer<S>, onErr?: ParallelOnErr);
-                     reduce(reducer: Reducer<S>): Parallel<S>; shortCircuit(): Parallel<S>; accumulate(): Parallel<S>; compile(): Graph; }
-type ParallelOnErr = 'short_circuit' | 'accumulate';
-type Reducer<S> = ((left: Focus<S, []>, right: Focus<S, []>) => Focus<S, []>)
-                | ((left: Focus<S, []>, right: Focus<S, []>, base: Focus<S, []>) => Focus<S, []>);
-const Merge: { keepLeft<S>(): Reducer<S>; keepRight<S>(): Reducer<S>; deep<S>(): Reducer<S>; strict<S>(): Reducer<S>; deepMerge; strictMerge };
-
-class When<S>   { static of<S>(name: string, block: (focus: Focus<S, []>) => unknown): When<S>; then(other: BerylxNode<S>): Branch<S>; }
-const Else: When<any>;
-class Branch<S> implements BerylxNode<S> { readonly arms: readonly BranchArm<S>[]; or(other: Branch<S>): Branch<S>; }
-interface Predicate<S> { readonly name: string; readonly block: ((focus: Focus<S, []>) => unknown) | null; readonly elseBranch: boolean }
-interface BranchArm<S> { readonly predicate: Predicate<S>; readonly body: BerylxNode<S> }
-
-type RescueHandlerBlock<S> = (error: unknown, focus: Focus<S, []>, performer: Perform) => Focus<S, any> | Result<S> | unknown;
-type RescueHandler<S> = RescueBlock<S> | BerylxNode<S>;
-interface CatchOptions { fatal?: boolean }
-class RescueBlock<S> implements NamedNode { constructor(name: string, block: RescueHandlerBlock<S>);
-                       call(focus: Focus<S, []>, errorResult: Err<S>, performer?: Perform): Result<S>; effectful(): boolean; }
-class Catch<S>  implements BerylxNode<S> { static of<S>(name?: string, handler?: RescueHandler<S> | null, options?: CatchOptions, block?: RescueHandlerBlock<S>): Catch<S>;
-                  readonly name: string; readonly handler: RescueHandler<S>; catches(errorResult: Err<S>): boolean; }
-class Rescue<S> implements BerylxNode<S> { constructor(body: BerylxNode<S>, handler: RescueHandler<S>); readonly body; readonly handler; }
-
-class Workflow implements BerylxNode { static of(name: string, build: () => BerylxNode): Workflow;
-                 readonly name: string; readonly body: BerylxNode; compile(): Graph; }
-```
-
-### Execution, inspection, and compatibility
-
-{/* prettier-ignore */}
-```ts
-class Perform { constructor(handlers: HandlerMap); perform(tag: string, payload?: unknown): unknown; }
-class ControlSignal extends Error { constructor(message?: string); }
-
-const EffectTree: {
-  TASK: 'berylx_task'; PARALLEL: 'berylx_parallel'; BRANCH: 'berylx_branch'; RESCUE: 'berylx_rescue'; RECOVER: 'berylx_recover';
-  build(node: BerylxNode, focus: unknown): Darkcore.Effect<Result>;
-  run(node: BerylxNode, focus: unknown, handlers?: HandlerMap): Result;
-  realHandlers(effects?: HandlerMap, subtree?: HandlerMap): HandlerMap;
-  around(effects: HandlerMap, wrapper: (tag: string, payload: unknown, inner: HandlerMap[string]) => unknown): HandlerMap;
-  runSubtree(node, focus: Focus, handlers): Result;
-  runParallel; runBranch; runRescue; realRecover; recover; branchMatches;
-  dryRun(node: BerylxNode, focus: unknown): DryRun;
-  runAsync(node: BerylxNode, focus: unknown, handlers?: AsyncHandlerMap): Promise<Result>;
-  runSubtreeAsync; asyncRealHandlers(effects?, subtree?): AsyncHandlerMap; aroundAsync(effects, wrapper): AsyncHandlerMap;
-  runParallelAsync; runBranchAsync; runRescueAsync; realRecoverAsync;
-};
-interface DryRun { result: Result; steps: string[] }
-
-class Graph { static from(node: BerylxNode, name?: string | null): Graph; readonly name: string | null; readonly root: BerylxNode;
-              nodes(): string[]; parallelNodes(): string[][]; toDot(): string; toMermaid(): string; }
-
-function attachRoot<S = unknown>(root: Root, listener: (state: S, event: RootEvent) => void, options?: AttachRootOptions<S>): () => void;
-interface AttachRootOptions<S> { select?: (state: unknown) => S; onSnapshot?; onCommit?; skipSnapshot?: boolean }
-
-namespace Darkcore { Effect, pure, op, perform, fold, run, foldAsync, runAsync, PURE, realHandlers,
-                     HandlerMap, AsyncHandlerMap, Maybe, Just, Nothing, Either, Left, Right, Result, Ok, Err,
-                     State, Validation, Success, Failure, IOEffects, VirtualWorld, deriveFmap, deriveAp }
-
-// Bridges for the root-paradigm cray result shape
-class CraySuccess<T> { readonly value: T; isSuccess(): this is CraySuccess<T>; isFailure(): boolean }
-class CrayFailure<E> { readonly error: E; isSuccess(): boolean; isFailure(): this is CrayFailure<E> }
-type CrayResult<T, E> = CraySuccess<T> | CrayFailure<E>;
-const Cray: { success<T>(value: T): CraySuccess<T>; failure<E>(error: E): CrayFailure<E> };
-function fromCrayResult(result: unknown, focus?: unknown): Result;
-function toCrayResult(result: Result): CrayResult;
-```
-
-## Migrating
-
-### From 0.2 to 0.3
-
-One breaking change, in `Parallel`. Before 0.3 the default reducer let the
-right-hand branch silently win when both branches changed the same path. The
-default is now `Merge.strict()`: independent updates are preserved, and
-incompatible updates to the same path return an `Err` with code
-`merge_conflict` instead of losing one side. If a workflow relied on right-wins,
-select it explicitly:
-
-```ts
-new Parallel([left, right]).reduce(Merge.deep());
-```
-
-0.3 also introduced `Focus<S, P>` typed by state and path and the `berylx<S>()`
-scoped factories; both are additive. Untyped `Task.of(...)` continues to work.
-
-### From @minamorl/cray and @minamorl/lay
-
-The package includes a `MIGRATION.md` for consumers of the `root-paradigm`
-packages. The mapping in brief:
-
-| cray / lay                        | berylx                                   |
-| --------------------------------- | ---------------------------------------- |
-| lay `Focus<S>` with mutating set  | `Focus` (immutable) + `Root.subscribe()` |
-| `cray()`                          | `Task` / `task()`                        |
-| sequence                          | `Sequence` / `node.then()`               |
-| `parallel()` + `Reducer`          | `Parallel`, `node.par()`, `Merge`        |
-| `branch()`, `else_`, `elseCray`   | `When`, `Else`, `Branch`, `Catch`        |
-| `Success` / `Failure`             | `Ok` / `Err` with `BerylxError`          |
-| `compile()`, `execute()`, `Graph` | `Graph.from(node)`                       |
-| `toMermaid()`                     | `Graph.toMermaid()` / `Graph.toDot()`    |
-| `attachCray()`                    | `attachRoot()`                           |
-
-Behavioural differences to account for: updates return a new `Focus` instead
-of mutating a store; subscriptions live on `Root`; cray's `Promise<Result>`
-becomes `AsyncTask` + `EffectTree.runAsync`; failures are normalised to
-`BerylxError` (`fromCrayResult` maps a string to a code, an `Error` to
-name/message/cause, and anything else to code `cray_failure`); and failure
-policy (`onErr`) is separated from state merging (`Merge`).
-
-## Where next
-
-The [practical examples](/berylx/examples/) page walks through six executable
-scenarios — order processing with recovery, parallel merges and conflicts,
-branching, asynchronous pipelines, structural inspection, and root commit
-semantics — each backed by a file that runs as part of this site's test suite.
+<CardGrid>
+  <LinkCard
+    title="Introduction"
+    description="Focus, results, tasks, composition, recovery, and execution — the complete 0.3.0 API."
+    href="/berylx/introduction/"
+  />
+  <LinkCard
+    title="Practical examples"
+    description="Six more executable scenarios, from branching to async pipelines and root commits."
+    href="/berylx/examples/"
+  />
+  <LinkCard
+    title="Source on GitHub"
+    description="Read the implementation of berylx-ts."
+    href="https://github.com/minamorl/berylx-ts"
+  />
+  <LinkCard
+    title="Package on npm"
+    description="@minamorl/berylx"
+    href="https://www.npmjs.com/package/@minamorl/berylx"
+  />
+</CardGrid>
+
+[^1]: Effect v3: [Expected Errors](https://effect.website/docs/v3/error-management/expected-errors), [Ref](https://effect.website/docs/v3/state-management/ref), and [Running Effects](https://effect.website/docs/v3/getting-started/running-effects). The error channel carries the error value chosen by the application; this sample reads its state from a reference and runs with `runPromiseExit`.
+
+[^2]: Effect v3: [Parallel and Sequential Errors](https://effect.website/docs/v3/error-management/parallel-and-sequential-errors) and [Retrying](https://effect.website/docs/v3/error-management/retrying). Concurrency and schedule-driven retries belong to the broader Effect API.
+
+[^3]: XState: [Invoke](https://stately.ai/docs/invoke) and [Context](https://stately.ai/docs/context). The sample invokes promise actors and uses `assign` to update context.
+
+[^4]: XState: [Actors](https://stately.ai/docs/actors) and [Inspection](https://stately.ai/docs/inspection). Actor inspection observes execution; Stately supplies visual tooling.
+
+[^5]: neverthrow: [README](https://github.com/supermacro/neverthrow). `ResultAsync.combine` combines results; applications choose their error values and how to join state.

@@ -1,0 +1,61 @@
+---
+// A section heading for a staged page: an act number, a title, and an optional
+// one-line kicker (a timestamp, a place). Renders an h2 so the heading is still
+// a heading; the number is decoration.
+interface Props {
+  number: number | string;
+  title: string;
+  kicker?: string;
+  id?: string;
+  /** The first act on a page: no rule above it, no extra space. */
+  first?: boolean;
+}
+const { number, title, kicker, id, first = false } = Astro.props;
+---
+
+<header class:list={['act', { first }]} id={id}>
+  <p class="number" aria-hidden="true">{number}</p>
+  <div>
+    {kicker && <p class="kicker">{kicker}</p>}
+    <h2>{title}</h2>
+  </div>
+</header>
+
+<style>
+  .act {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--lib-space-4);
+    margin-top: var(--lib-space-16);
+    padding-top: var(--lib-space-6);
+    border-top: var(--lib-hairline) solid var(--sl-color-hairline);
+  }
+  .act.first {
+    margin-top: var(--lib-space-4);
+    padding-top: 0;
+    border-top: 0;
+  }
+  .number {
+    margin: 0;
+    font-family: var(--__sl-font-mono);
+    font-size: var(--sl-text-h1);
+    line-height: 1;
+    font-weight: 400;
+    color: var(--sl-color-accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .kicker {
+    margin: 0 0 var(--lib-space-1);
+    font-family: var(--__sl-font-mono);
+    font-size: var(--sl-text-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--sl-color-gray-3);
+  }
+  h2 {
+    margin: 0;
+    font-size: var(--sl-text-h2);
+    line-height: var(--sl-line-height-headings);
+    color: var(--sl-color-white);
+  }
+</style>

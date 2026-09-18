@@ -1,0 +1,46 @@
+---
+import { Code } from '@astrojs/starlight/components';
+import Stage from '../assets/berylx/stage.svg';
+interface Props { composition: string }
+const { composition } = Astro.props;
+---
+
+<section class="berylx-showcase" aria-labelledby="showcase-title">
+  <div class="showcase-masthead">
+    <span class="showcase-wordmark">berylx<span aria-hidden="true">↗</span></span>
+    <span class="showcase-edition">TypeScript workflows / 0.3.0</span>
+  </div>
+  <p class="showcase-kicker">02:14 AM. Order #4127. Payment declined.</p>
+  <h2 id="showcase-title">The card fails.<br /><span>The flow holds.</span></h2>
+  <p class="showcase-deck">Reserve stock. Score risk. Charge the card.<br class="desktop-break" /> When payment fails, carry the state straight into recovery.</p>
+  <div class="showcase-stage">
+    <div class="showcase-score">
+      <p class="showcase-label"><span>01 / The composition</span><span>Real, executable TypeScript</span></p>
+      <Code code={composition} lang="ts" title="checkout" />
+      <p class="showcase-notation"><code>then</code> sequence <span aria-hidden="true">/</span> <code>par</code> split + merge <span aria-hidden="true">/</span> <code>release</code> your catch handler</p>
+    </div>
+    <figure class="showcase-scene">
+      <div class="showcase-label"><span>02 / The declined path</span><button class="replay-trace" type="button" aria-label="Replay the illustrated declined checkout trace">Replay ↗</button></div>
+      <Stage />
+      <figcaption>Illustrated fixture: 2 units released. Notification skipped.</figcaption>
+    </figure>
+  </div>
+  <nav class="showcase-actions" aria-label="Explore berylx">
+    <a class="showcase-primary" href="#by-hand">Compare with hand-written code <span aria-hidden="true">↓</span></a>
+    <a href="#get-it">Install <span aria-hidden="true">↗</span></a>
+    <a href="/berylx/introduction/">Read the API <span aria-hidden="true">↗</span></a>
+  </nav>
+  <p class="showcase-scope">One immutable state. A three-way merge. Failures with context.</p>
+</section>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('.replay-trace').forEach((button) => {
+    button.addEventListener('click', () => {
+      const scene = button.closest('.showcase-scene');
+      if (!(scene instanceof HTMLElement)) return;
+      scene.classList.remove('is-replaying');
+      void scene.offsetWidth;
+      scene.classList.add('is-replaying');
+    });
+  });
+</script>
