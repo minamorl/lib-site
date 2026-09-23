@@ -1,6 +1,6 @@
 ---
 title: Practical examples
-description: Six executable berylx scenarios — order recovery, parallel merges, branching, async pipelines, inspection, and root commit semantics — each verified by the site's test suite.
+description: Seven executable berylx scenarios — order recovery, parallel merges, counters in parallel, branching, async pipelines, inspection, and root commit semantics — each verified by the site's test suite.
 sidebar:
   order: 3
 ---
@@ -8,6 +8,7 @@ sidebar:
 import { Code } from "@astrojs/starlight/components";
 import orderRecovery from "../../../../examples/berylx/order-recovery.ts?raw";
 import parallelMerge from "../../../../examples/berylx/parallel-merge.ts?raw";
+import parallelCounter from "../../../../examples/berylx/parallel-counter.ts?raw";
 import branching from "../../../../examples/berylx/branching.ts?raw";
 import asyncPipeline from "../../../../examples/berylx/async-pipeline.ts?raw";
 import inspect from "../../../../examples/berylx/inspect.ts?raw";
@@ -77,6 +78,24 @@ joins the results against that base. The file asserts each rule of the join:
 
 Note the last section: `par()` is typed as `BerylxNode<S>`, so `.accumulate()`
 and `.reduce()` are reached by constructing `new Parallel([...])` directly.
+
+## Counters in parallel branches
+
+`Merge.strict` joins **snapshots**, not the operations that produced them. When
+several branches increment the same counter, each one reads the base value and
+writes the same result, so the join sees matching updates to one path and keeps
+a single increment: three parallel `likes + 1` branches end at `likes: 1`.
+
+Give each contribution its own path instead — here `likedBy.<user>` — and the
+writes become disjoint, so every one of them survives. Derive the total after
+the join. This is the same shape as a grow-only counter CRDT, which keeps one
+entry per replica for the same reason.
+
+<Code
+  code={parallelCounter}
+  lang="ts"
+  title="examples/berylx/parallel-counter.ts"
+/>
 
 ## Branching with When and Else
 
