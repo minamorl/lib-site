@@ -73,7 +73,7 @@ Order #4127 reserves **2 units at tokyo-2** while its risk score is calculated. 
 <details>
   <summary>Run it: asynchronous tasks, explicit commit, and both outcome checks</summary>
 
-The async API in `@minamorl/berylx` **0.3.0** is `AsyncTask.of` with `EffectTree.runAsync`. Both branches start concurrently. The runner returns a result; **the caller commits only an `Ok`**. The synchronous `root.pipe` API supplies that policy automatically, but it does not run async tasks. [API source](https://github.com/minamorl/berylx-ts#asynchronous-tasks).
+The async API in `@minamorl/berylx` **0.3.1** is `AsyncTask.of` with `EffectTree.runAsync`. Both branches start concurrently. The runner returns a result; **the caller commits only an `Ok`**. The synchronous `root.pipe` API supplies that policy automatically, but it does not run async tasks. [API source](https://github.com/minamorl/berylx-ts#asynchronous-tasks).
 
 <Code
   code={workflowSrc}
@@ -160,7 +160,7 @@ These libraries solve different problems. The comparison below is about **how ou
 
 |                      | What you compose                                             | How this checkout keeps recovery state                                                              | Choose it for                                                                      |
 | -------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| **berylx 0.3.0**     | Named tasks, `then`, `par`, and `catch`.                     | `Err.focus`, provided to the catch handler.                                                         | An inspectable workflow over one state object, with a defined merge law.           |
+| **berylx 0.3.1**     | Named tasks, `then`, `par`, and `catch`.                     | `Err.focus`, provided to the catch handler.                                                         | An inspectable workflow over one state object, with a defined merge law.           |
 | **Effect 3.22.2**    | Effects with typed success, error, and environment channels. | This sample uses `Ref` and a typed `CheckoutFailed` error; immutable values are another option.[^1] | A broader effect system with structured concurrency, services, and scheduling.[^2] |
 | **XState 5.33.2**    | States, events, transitions, and actors.                     | Context at the `onError` transition.[^3]                                                            | Event-driven behavior, explicit statecharts, and actor inspection.[^4]             |
 | **neverthrow 8.2.0** | `Result` / `ResultAsync`, `andThen`, and `orElse`.           | This sample closes over state, then places it in `CheckoutFailed`.[^5]                              | Typed success and failure values with a small composition surface.                 |
@@ -240,7 +240,7 @@ npm install @minamorl/berylx
 <CardGrid>
   <LinkCard
     title="Introduction"
-    description="Focus, results, tasks, composition, recovery, and execution — the complete 0.3.0 API."
+    description="Focus, results, tasks, composition, recovery, and execution — the complete 0.3.1 API."
     href="/berylx/introduction/"
   />
   <LinkCard
