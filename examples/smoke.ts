@@ -17,6 +17,6 @@ assert.equal(doubled, 42);
 for (const name of ['Ok', 'Err', 'Focus', 'Root', 'Flow', 'Task', 'Workflow', 'run', 'task'] as const) {
   assert.ok(berylx[name] !== undefined, `berylx.${name}`);
 }
-assert.equal(typeof berylx.VERSION, 'string');
+assert.equal(berylx.VERSION, '0.3.1');
 
 console.log(`darkcore ok, berylx ${berylx.VERSION} ok`);
