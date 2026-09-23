@@ -139,7 +139,7 @@ Object spread is fine for patches with known ownership. It is **not a three-way 
   id="the-merge"
 />
 
-`par` uses `Merge.strict()` by default: **base, left, right**. Disjoint paths survive together. Two different writes to the same path return `Err(merge_conflict)` with the base state, so you choose how to resolve the collision.
+`par` uses `Merge.strict()` by default: **base, left, right**. Disjoint paths survive together. Two different writes to the same path return `Err(merge_conflict)` with the base state, so you choose how to resolve the collision. The join compares snapshots, so parallel increments of one counter collapse into a single update; [counters in parallel branches](/berylx/examples/#counters-in-parallel-branches) shows the per-path shape that keeps them all.
 
 <MergeFigure />
 
@@ -245,7 +245,7 @@ npm install @minamorl/berylx
   />
   <LinkCard
     title="Practical examples"
-    description="Six more executable scenarios, from branching to async pipelines and root commits."
+    description="Seven more executable scenarios, from branching and parallel counters to async pipelines and root commits."
     href="/berylx/examples/"
   />
   <LinkCard
