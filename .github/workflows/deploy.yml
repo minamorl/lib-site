@@ -26,9 +26,9 @@ name: Deploy lib.minamorl.com
 #
 #   DEPLOY_SSH_KEY       private half of the lib-deploy-ci key. Its own key,
 #                        revocable alone by removing one authorized_keys line.
-#   DEPLOY_HOST          vultr's address.
+#   DEPLOY_HOST          vultr's public IPv4 (64.176.43.103), reached from tau.
 #   DEPLOY_USER          SSH user on vultr (minamorl).
-#   DEPLOY_KNOWN_HOSTS   pinned host key line(s) from `ssh-keyscan -t ed25519`.
+#   DEPLOY_KNOWN_HOSTS   pinned public-IP host key, verified against Vultr itself.
 #
 # Until they exist the deploy is skipped loudly in the run summary.
 
@@ -47,9 +47,12 @@ permissions:
 jobs:
   deploy:
     name: Deploy to lib.minamorl.com
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: [self-hosted, linux, x64, lib-site-tau-deploy]
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Are the deploy secrets present
         id: secrets
@@ -75,6 +78,9 @@ jobs:
               echo "this workflow (deploy/README.md lists how each is made)."
             } >> "$GITHUB_STEP_SUMMARY"
             echo "Deploy secrets are not configured — skipping."
+          elif [ "$HOST" != "64.176.43.103" ]; then
+            echo "DEPLOY_HOST must use the approved public IPv4 transport." >&2
+            exit 1
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
@@ -85,14 +91,15 @@ jobs:
           KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "$KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          umask 077
+          ssh_dir="$(mktemp -d "$RUNNER_TEMP/deploy-ssh.XXXXXXXX")"
+          echo "DEPLOY_SSH_DIR=$ssh_dir" >> "$GITHUB_ENV"
+          printf '%s\n' "$KEY" > "$ssh_dir/deploy_key"
+          chmod 600 "$ssh_dir/deploy_key"
           # Pinned, never trust-on-first-use: the key can only talk to the
           # forced command, but the host it talks to must still be ours.
-          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
+          printf '%s\n' "$KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          chmod 600 "$ssh_dir/known_hosts"
 
       - name: Deploy through kyanite
         if: steps.secrets.outputs.ready == 'true'
@@ -105,7 +112,10 @@ jobs:
           # SSH_ORIGINAL_COMMAND, not a shell. Output is kyanite's JSON, or a
           # single {"skipped": "<reason>"} when the commit carries nothing to
           # deploy (no kyanite.toml yet) — that is a green no-op, not a failure.
-          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes \
+          ssh -F /dev/null -i "$DEPLOY_SSH_DIR/deploy_key" \
+            -o UserKnownHostsFile="$DEPLOY_SSH_DIR/known_hosts" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             "$USER@$HOST" "deploy ${GITHUB_SHA}" | tee deploy.json
           skipped="$(jq -r 'if type == "object" then .skipped // empty else empty end' deploy.json)"
           if [ -n "$skipped" ]; then
@@ -124,7 +134,10 @@ jobs:
           HOST: ${{ secrets.DEPLOY_HOST }}
           USER: ${{ secrets.DEPLOY_USER }}
         run: |
-          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes \
+          ssh -F /dev/null -i "$DEPLOY_SSH_DIR/deploy_key" \
+            -o UserKnownHostsFile="$DEPLOY_SSH_DIR/known_hosts" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             "$USER@$HOST" "status" > status.json
           cat status.json
           state="$(jq -r '.kyanite[0].latest.state // "none"' status.json)"
@@ -158,4 +171,8 @@ jobs:
 
       - name: Shred the key
         if: always()
-        run: rm -f ~/.ssh/deploy_key
+        run: |
+          if [ -n "${DEPLOY_SSH_DIR:-}" ]; then
+            rm -f -- "$DEPLOY_SSH_DIR/deploy_key" "$DEPLOY_SSH_DIR/known_hosts"
+            rmdir -- "$DEPLOY_SSH_DIR"
+          fi

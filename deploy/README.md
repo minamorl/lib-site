@@ -88,6 +88,11 @@ curl -X DELETE -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
 
 ## GitHub Actions (`.github/workflows/deploy.yml`)
 
+Deployment SSH runs on the repository-only tau runner, through the origin's
+public IPv4. See [tau runner operations](tau-runner/README.md) for installation,
+isolation, host-key verification, and recovery. Kyanite still builds the
+production image on Vultr; application CI remains on GitHub-hosted runners.
+
 Triggers: `push` to `main`, `workflow_dispatch`. One deploy at a time
 (`concurrency: lib-site-deploy`, no cancel). The job:
 
@@ -104,9 +109,9 @@ Triggers: `push` to `main`, `workflow_dispatch`. One deploy at a time
 | secret               | value / how made                                                                                                                                                       |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DEPLOY_SSH_KEY`     | private half of `ssh-keygen -t ed25519 -C lib-deploy-ci`; fingerprint `SHA256:Jhsl66XnEkdvcm2FV4S5vBVEGb72pc1lE77XISOtJ38`. The private key exists only in this secret |
-| `DEPLOY_HOST`        | the origin host's public IP (not written down here; on the tailnet the host is `vultr`)                                                                                |
+| `DEPLOY_HOST`        | `64.176.43.103`, the approved public IPv4 endpoint reached from tau                                                                                                    |
 | `DEPLOY_USER`        | `minamorl`                                                                                                                                                             |
-| `DEPLOY_KNOWN_HOSTS` | output of `ssh-keyscan -t ed25519 "$DEPLOY_HOST"` against the origin host (pinned; the workflow uses `StrictHostKeyChecking=yes`)                                      |
+| `DEPLOY_KNOWN_HOSTS` | public-IP ed25519 host-key line, compared against the trusted Vultr host public key before setting (see tau runner operations)                                         |
 
 To rotate the key: generate a new pair, replace `DEPLOY_SSH_KEY`, replace the
 `lib-deploy-ci` line in vultr's `~/.ssh/authorized_keys` (keep the
