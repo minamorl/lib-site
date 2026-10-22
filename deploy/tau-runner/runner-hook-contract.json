@@ -1,0 +1,117 @@
+{
+  "version": "2.338.0",
+  "commit": "197ca027b90de199464dee3bb9ff198a1db60967",
+  "sources": [
+    {
+      "path": "src/Runner.Listener/Program.cs",
+      "local": "ListenerProgram.cs",
+      "sha256": "05b0cf8239f9f9240be77b2f9367846c80ca86f37a25e12d02b53043f2c9140d"
+    },
+    {
+      "path": "src/Runner.Listener/JobDispatcher.cs",
+      "local": "JobDispatcher.cs",
+      "sha256": "606ce3b5ec955a14dae3508bb335b69b0b805fe62f6b30771728ffb178f38088"
+    },
+    {
+      "path": "src/Runner.Worker/JobExtension.cs",
+      "local": "JobExtension.cs",
+      "sha256": "37257e52ea8e410f6ec97a1ff53519370c8f5d7e87a96da7dd7438295e539211"
+    },
+    {
+      "path": "src/Runner.Worker/JobHookProvider.cs",
+      "local": "JobHookProvider.cs",
+      "sha256": "32fa8c252fc270503378c023a876440fc8785fec2341d4c14041450b6f862076"
+    },
+    {
+      "path": "src/Runner.Worker/Handlers/ScriptHandler.cs",
+      "local": "ScriptHandler.cs",
+      "sha256": "c0e077799529bcac4ad5f8865a5b68bf1b04aca825865d274efc40abc22b094b"
+    },
+    {
+      "path": "src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs",
+      "local": "ScriptHandlerHelpers.cs",
+      "sha256": "be2dd692bfc6c75f2376010a7b8038ee165f7889691b94b5b768f225e18aa86a"
+    },
+    {
+      "path": "src/Runner.Worker/Handlers/HandlerFactory.cs",
+      "local": "HandlerFactory.cs",
+      "sha256": "29e8b27e016feeab6ad2fd983ea59bed9c095920fca57eeb070ae11c31a5d2cd"
+    },
+    {
+      "path": "src/Runner.Worker/Handlers/Handler.cs",
+      "local": "Handler.cs",
+      "sha256": "0a24ecc684bc2d3bc418b4c997c1e31bf7b96da97b6f66dc70fd16ea1e9232c7"
+    },
+    {
+      "path": "src/Runner.Worker/Handlers/StepHost.cs",
+      "local": "StepHost.cs",
+      "sha256": "fd5613ec59cc8916d1c9922db3d899bc07587bf62064a143e35789cfb1d25ea3"
+    },
+    {
+      "path": "src/Runner.Worker/ExecutionContext.cs",
+      "local": "ExecutionContext.cs",
+      "sha256": "d2e079200bf885ec1153a38e65c4eb9186f0348f74a01cc582b208ef992e3f14"
+    },
+    {
+      "path": "src/Runner.Worker/GitHubContext.cs",
+      "local": "GitHubContext.cs",
+      "sha256": "7b2f5fae3f5a62172dca7687a5b80d15cd50af075fd460b934aba04f86a15946"
+    },
+    {
+      "path": "src/Runner.Worker/ActionManager.cs",
+      "local": "ActionManager.cs",
+      "sha256": "084a98970ed891514c6dc9a6a28c5d12d987ef54e60695f5c11edd5d96a546fd"
+    },
+    {
+      "path": "src/Runner.Worker/StepsRunner.cs",
+      "local": "StepsRunner.cs",
+      "sha256": "7f89529ca548e704db0e6dc97df1a2d291c0db85ad18701d17db59330861ca6c"
+    },
+    {
+      "path": "src/Runner.Common/ConfigurationStore.cs",
+      "local": "ConfigurationStore.cs",
+      "sha256": "5eca29c4f3ce56861680058dbc5e64ec7222421bdb7281f1d502717a235c56a9"
+    },
+    {
+      "path": "src/Runner.Common/HostContext.cs",
+      "local": "HostContext.cs",
+      "sha256": "a42a36a5253e73091acea67064b67d0950d3ab00b9af9933ef5941fe572f90ac"
+    },
+    {
+      "path": "src/Runner.Sdk/ProcessInvoker.cs",
+      "local": "ProcessInvoker.cs",
+      "sha256": "6a5a410a03bafef09ba7ac9af9514d7f74bc6501410fa2a60b059e1f1ac7c062"
+    },
+    {
+      "path": "src/Runner.Listener/Runner.cs",
+      "local": "Runner.cs",
+      "sha256": "96f998692e2715b2c95800c843da4ac6206561f69b7fd41228d28d0fa007b5cd"
+    },
+    {
+      "path": "src/Runner.Listener/BrokerMessageListener.cs",
+      "local": "BrokerMessageListener.cs",
+      "sha256": "99f7112149ba377e120e9686540f0dc5dd43771d0120d04afff9e4c6c07b927f"
+    },
+    {
+      "path": "src/Runner.Listener/MessageListener.cs",
+      "local": "MessageListener.cs",
+      "sha256": "3ca0e003a50a79305375a50212095b40bf0f4b09c3625f528f6737f72be6608f"
+    },
+    {
+      "path": "src/Sdk/DTPipelines/Pipelines/ContextData/CaseSensitiveDictionaryContextData.cs",
+      "local": "CaseSensitiveDictionaryContextData.cs",
+      "sha256": "bde1fefa5646a18ddee130ec0e853a4ba0a5b814b4629a76a7699708804ad02b"
+    }
+  ],
+  "package": {
+    "sha256": "af4b794c1bc41d73d40535e3fe092a39f9679cd8d965954c2aca25a05ca41d32",
+    "files": {
+      "bin/Runner.Listener": "50a25191bebce204fa3da9d73c780339543e5591882a9028122fc1165472942e",
+      "bin/Runner.Listener.dll": "05eed23a94dfa96b2bb2d84a84312c1b8b5af39af28e1d9cf529eb4c5eb8874e",
+      "bin/Runner.Worker": "3634ab999b1d4a83b605bed75f6f5df67120deee77926e3d2b5d9247fafcd72f",
+      "bin/Runner.Worker.dll": "5b70067b6cbf706bcccdc73ef4a3ce0b118a86ad5cdf82b54dcca96724c67a0f",
+      "run.sh": "b39d7e0ca921a3189f7fe4e0a2f686b46719d4ccc2647f156f14407ec4517e8f",
+      "run-helper.sh.template": "6e75e623cfe41831aae5dc4b059d0869a93355eff995fcbb23e38eda424d82f1"
+    }
+  }
+}

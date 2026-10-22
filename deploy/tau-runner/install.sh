@@ -7,6 +7,9 @@ ACCOUNT=gh-lib-deploy
 RUNNER=/srv/github-runner-lib-site
 UNIT=github-runner-lib-site.service
 HOOKS=/usr/local/libexec/github-runner-lib-site
+if systemctl is-active --quiet "$UNIT"; then
+    echo 'Stop the idle repository runner before bootstrap' >&2; exit 65
+fi
 VERSION=2.338.0
 SHA256=af4b794c1bc41d73d40535e3fe092a39f9679cd8d965954c2aca25a05ca41d32
 
@@ -36,76 +39,13 @@ tar -xzf "$archive"
 ./bin/Runner.Listener --version
 DOWNLOAD
 fi
+source_dir=$(cd -- "$(dirname -- "$0")" && pwd)
+# Bootstrap now requires the adjacent admission bundle, staged root-owned.
+[[ -f $source_dir/install-admission.sh && -f $source_dir/register.sh ]] || exit 65
 install -d -m 0755 -o root -g root "$HOOKS"
-cat > "$HOOKS/guard.sh" <<GUARD
-#!/usr/bin/env bash
-set -euo pipefail
-[[ \${GITHUB_REPOSITORY:-} == minamorl/$REPO &&
-   \${GITHUB_REF:-} == refs/heads/main &&
-   \${GITHUB_WORKFLOW_REF:-} == minamorl/$REPO/.github/workflows/deploy.yml@refs/heads/main ]] || {
-    echo 'Runner accepts only this repository main deployment workflow' >&2; exit 64;
-}
-case \${GITHUB_EVENT_NAME:-} in
-    push|workflow_dispatch) ;;
-    *) echo 'Runner refuses this event' >&2; exit 64 ;;
-esac
-GUARD
-cat > "$HOOKS/register.sh" <<REGISTER
-#!/usr/bin/env bash
-set -euo pipefail
-umask 077
-[[ \$(id -un) == $ACCOUNT ]] || exit 64
-read -r ACTIONS_RUNNER_INPUT_TOKEN
-export ACTIONS_RUNNER_INPUT_TOKEN
-cd $RUNNER
-exec ./config.sh --unattended --url https://github.com/minamorl/$REPO \
-    --name tau-$REPO-deploy --labels $REPO-tau-deploy --work _work
-REGISTER
-chmod 0755 "$HOOKS/guard.sh" "$HOOKS/register.sh"
-cat > "/etc/systemd/system/$UNIT" <<UNITFILE
-[Unit]
-Description=Repository-only $REPO deploy runner on tau
-Wants=network-online.target
-After=network-online.target
-ConditionPathExists=$RUNNER/.runner
-
-[Service]
-Type=simple
-User=$ACCOUNT
-Group=$ACCOUNT
-WorkingDirectory=$RUNNER
-ExecStart=$RUNNER/run.sh
-Environment=PATH=/usr/local/bin:/usr/bin:/bin
-Environment=ACTIONS_RUNNER_HOOK_JOB_STARTED=$HOOKS/guard.sh
-UMask=0077
-NoNewPrivileges=yes
-ProtectSystem=strict
-ProtectHome=yes
-ReadWritePaths=$RUNNER
-TemporaryFileSystem=/srv:ro
-BindPaths=$RUNNER
-PrivateTmp=yes
-PrivateDevices=yes
-ProtectKernelTunables=yes
-ProtectKernelModules=yes
-ProtectKernelLogs=yes
-ProtectControlGroups=yes
-ProtectClock=yes
-RestrictSUIDSGID=yes
-RestrictRealtime=yes
-LockPersonality=yes
-CapabilityBoundingSet=
-InaccessiblePaths=-/run/docker.sock -/run/containerd -/var/backups -/mnt -/media
-Restart=always
-RestartSec=10
-KillMode=control-group
-TimeoutStopSec=45
-
-[Install]
-WantedBy=multi-user.target
-UNITFILE
-systemd-analyze verify "/etc/systemd/system/$UNIT"
-systemctl daemon-reload
-# Do not start until repository registration has succeeded.
-printf 'Installed %s; registration/start are separate.\n' "$UNIT"
-id "$ACCOUNT"
+install -m 0755 -o root -g root "$source_dir/register.sh" "$HOOKS/register.sh"
+if [[ -f $RUNNER/.runner ]]; then
+    "$source_dir/install-admission.sh"
+else
+    printf 'Bootstrap prepared %s. Register with --disableupdate, then run install-admission.sh before starting.\n' "$REPO"
+fi

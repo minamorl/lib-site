@@ -1,0 +1,42 @@
+[Unit]
+Description=Repository-only lib-site deploy runner on tau
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/srv/github-runner-lib-site/.runner
+
+[Service]
+Type=simple
+User=gh-lib-deploy
+Group=gh-lib-deploy
+WorkingDirectory=/srv/github-runner-lib-site
+ExecStart=/srv/github-runner-lib-site/bin/Runner.Listener run
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/libexec/github-runner-lib-site/guard.sh
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+TemporaryFileSystem=/srv:ro
+BindReadOnlyPaths=/srv/github-runner-lib-site
+BindReadOnlyPaths=/etc/github-runner-lib-site/runner.env:/srv/github-runner-lib-site/.env
+ReadOnlyPaths=/srv/github-runner-lib-site
+ReadWritePaths=/srv/github-runner-lib-site/_work /srv/github-runner-lib-site/_diag
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+InaccessiblePaths=-/run/docker.sock -/run/containerd -/var/backups -/mnt -/media
+Restart=always
+RestartSec=10
+KillMode=control-group
+TimeoutStopSec=45
+
+[Install]
+WantedBy=multi-user.target
