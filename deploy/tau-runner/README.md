@@ -8,7 +8,7 @@ remain unchanged by the admission correction.
 
 ## Transport and deployment checks
 
-The runner opens ordinary SSH to `64.176.43.103` from the home's public IPv4.
+The runner opens ordinary SSH to `66.42.42.213` from the home's public IPv4.
 There is no Tailscale action, OAuth credential, tunnel, or Tailnet routing in this
 path. A changed home WAN address or tau outage pauses deployment; Vultr console
 access is the shared-host recovery path.

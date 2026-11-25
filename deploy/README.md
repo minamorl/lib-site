@@ -109,7 +109,7 @@ Triggers: `push` to `main`, `workflow_dispatch`. One deploy at a time
 | secret               | value / how made                                                                                                                                                       |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DEPLOY_SSH_KEY`     | private half of `ssh-keygen -t ed25519 -C lib-deploy-ci`; fingerprint `SHA256:Jhsl66XnEkdvcm2FV4S5vBVEGb72pc1lE77XISOtJ38`. The private key exists only in this secret |
-| `DEPLOY_HOST`        | `64.176.43.103`, the approved public IPv4 endpoint reached from tau                                                                                                    |
+| `DEPLOY_HOST`        | `66.42.42.213`, the approved public IPv4 endpoint reached from tau                                                                                                     |
 | `DEPLOY_USER`        | `minamorl`                                                                                                                                                             |
 | `DEPLOY_KNOWN_HOSTS` | public-IP ed25519 host-key line, compared against the trusted Vultr host public key before setting (see tau runner operations)                                         |
 
