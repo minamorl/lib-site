@@ -26,7 +26,7 @@ name: Deploy lib.minamorl.com
 #
 #   DEPLOY_SSH_KEY       private half of the lib-deploy-ci key. Its own key,
 #                        revocable alone by removing one authorized_keys line.
-#   DEPLOY_HOST          vultr's public IPv4 (64.176.43.103), reached from tau.
+#   DEPLOY_HOST          vultr's public IPv4 (66.42.42.213), reached from tau.
 #   DEPLOY_USER          SSH user on vultr (minamorl).
 #   DEPLOY_KNOWN_HOSTS   pinned public-IP host key, verified against Vultr itself.
 #
@@ -78,7 +78,7 @@ jobs:
               echo "this workflow (deploy/README.md lists how each is made)."
             } >> "$GITHUB_STEP_SUMMARY"
             echo "Deploy secrets are not configured — skipping."
-          elif [ "$HOST" != "64.176.43.103" ]; then
+          elif [ "$HOST" != "66.42.42.213" ]; then
             echo "DEPLOY_HOST must use the approved public IPv4 transport." >&2
             exit 1
           else
